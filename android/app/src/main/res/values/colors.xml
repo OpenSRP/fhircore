@@ -28,4 +28,8 @@
     <color name="light">#E9E9E9</color>
 
     <color name="transparent_blue">#44389cc8</color>
+    <color name="status_green">#319440</color>
+    <color name="status_gray">#9e9b9b</color>
+    <color name="status_blue">#3c418c</color>
+    <color name="status_red">#b80d10</color>
 </resources>

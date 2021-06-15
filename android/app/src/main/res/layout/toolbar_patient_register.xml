@@ -44,7 +44,8 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="15dp">
+        android:layout_marginTop="15dp"
+        android:orientation="vertical">
 
         <EditText
             android:id="@+id/edit_text_search"
@@ -60,10 +61,38 @@
             android:drawablePadding="10dp"
             android:hint="@string/search_hint"
             android:textColorHint="#AEAEAE"
-            android:paddingStart="15dp"
-            android:paddingEnd="15dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
             android:drawableTint="#AEAEAE"
             android:fontFamily="sans-serif" />
+
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/rounded_white_thicker_stroked_bg"
+            android:gravity="center"
+            android:padding="15dp"
+            android:layout_marginTop="10dp"
+            android:id="@+id/layout_scan_barcode" >
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:drawableEnd="@drawable/ic_barcode"
+                android:drawableTint="@color/white" />
+
+        <TextView
+            android:id="@+id/btn_scan_barcode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/white"
+            android:text="SCAN BAR CODE"
+            android:textSize="22sp"
+            android:gravity="center"
+            android:layout_marginLeft="10dp" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

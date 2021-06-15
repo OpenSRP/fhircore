@@ -25,10 +25,19 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import ca.uhn.fhir.rest.param.ParamPrefixEnum
 import com.google.android.fhir.FhirEngine
+import com.google.android.fhir.ResourceNotFoundException
 import com.google.android.fhir.search.Order
 import com.google.android.fhir.search.search
+import com.google.android.fhir.sync.SyncConfiguration
+import com.google.android.fhir.sync.SyncData
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.launch
+import org.hl7.fhir.r4.model.Immunization
 import org.hl7.fhir.r4.model.Patient
+import org.hl7.fhir.r4.model.ResourceType
 import org.smartregister.fhircore.data.SamplePatients
 import org.smartregister.fhircore.domain.Pagination
 import org.smartregister.fhircore.util.Utils
@@ -61,9 +70,13 @@ class PatientListViewModel(application: Application, private val fhirEngine: Fhi
 
   val liveSearchPatient: MutableLiveData<PatientItem> by lazy { MutableLiveData<PatientItem>() }
 
+  val liveSearchImmunization: MutableLiveData<List<Immunization>> by lazy {
+    MutableLiveData<List<Immunization>>()
+  }
+
   fun searchResults(query: String? = null, page: Int = 0, pageSize: Int = 10) {
     viewModelScope.launch {
-      val searchResults: List<Patient> =
+      var searchResults: List<Patient> =
         fhirEngine.search {
           Utils.addBasePatientFilter(this)
 
@@ -75,16 +88,80 @@ class PatientListViewModel(application: Application, private val fhirEngine: Fhi
               }
             }
           }
+
           sort(Patient.GIVEN, Order.ASCENDING)
-          count = pageSize
-          from = (page * pageSize)
         }
+
+      searchResults =
+        searchResults.filter { it.nameMatchesFilter(query) || it.idMatchesFilter(query) }
+      var startIndex = page * pageSize
+      startIndex = if (searchResults.size > startIndex) startIndex else 0
+      var endIndex = pageSize + (page * pageSize)
+      endIndex = if (searchResults.size > endIndex) endIndex else searchResults.size
+      searchResults = searchResults.subList(startIndex, endIndex)
 
       liveSearchedPaginatedPatients.value =
         Pair(
           samplePatients.getPatientItems(searchResults),
           Pagination(totalItems = count(query), pageSize = pageSize, currentPage = page)
         )
+    }
+  }
+
+  fun fetchPatientStatus(id: String): LiveData<PatientStatus> {
+    val status = MutableLiveData<PatientStatus>()
+    val formatter = SimpleDateFormat("dd-MM-yy", Locale.US)
+
+    viewModelScope.launch {
+      val searchResults: List<Immunization> =
+        fhirEngine.search { filter(Immunization.PATIENT) { value = "Patient/$id" } }
+
+      val computedStatus = computeVaccineStatus(searchResults)
+
+      status.value =
+        PatientStatus(
+          status = computedStatus,
+          details =
+            if (searchResults.isNotEmpty())
+              formatter.format(searchResults[searchResults.size - 1].recorded)
+            else ""
+        )
+    }
+    return status
+  }
+
+  internal fun computeVaccineStatus(searchResults: List<Immunization>): VaccineStatus {
+    // check database for immunizations
+    val cal: Calendar = Calendar.getInstance()
+    cal.add(Calendar.DATE, -28)
+    val overDueStart: Date = cal.time
+
+    return when {
+      searchResults.isEmpty() -> VaccineStatus.DUE
+      searchResults.size == 1 && searchResults[0].recorded.before(overDueStart) ->
+        VaccineStatus.OVERDUE
+      searchResults.size == 1 -> VaccineStatus.PARTIAL
+      else -> VaccineStatus.VACCINATED
+    }
+  }
+
+  protected fun Patient.nameMatchesFilter(filter: String?): Boolean {
+    return (filter == null ||
+      (!this.name.isEmpty() &&
+        (this.name.first().family.contains(filter, true) ||
+          this.name.first().given?.first()?.asStringValue()?.contains(filter, true) == true)))
+  }
+
+  protected fun Patient.idMatchesFilter(filter: String?): Boolean {
+    return (filter == null || filter.equals(this.idElement.idPart))
+  }
+
+  /** Basic search for immunizations */
+  fun searchImmunizations(patientId: String? = null) {
+    viewModelScope.launch {
+      val searchResults: List<Immunization> =
+        fhirEngine.search { filter(Immunization.PATIENT) { value = "Patient/$patientId" } }
+      liveSearchImmunization.value = searchResults
     }
   }
 
@@ -122,8 +199,39 @@ class PatientListViewModel(application: Application, private val fhirEngine: Fhi
     liveSearchPatient.value = patientItems?.get(0)
   }
 
-  fun syncUpload() {
-    viewModelScope.launch { fhirEngine.syncUpload() }
+  fun runSync() {
+    viewModelScope.launch {
+      fhirEngine.syncUpload()
+
+      /** Download Immediately from the server */
+      val syncData =
+        listOf(
+          SyncData(
+            resourceType = ResourceType.Patient,
+            params = mapOf("address-city" to "NAIROBI")
+          ),
+          SyncData(resourceType = ResourceType.Immunization)
+        )
+      fhirEngine.sync(SyncConfiguration(syncData = syncData))
+    }
+  }
+
+  fun isPatientExists(id: String): LiveData<Result<Boolean>> {
+    val result = MutableLiveData<Result<Boolean>>()
+    viewModelScope.launch {
+      try {
+        fhirEngine.load(Patient::class.java, id)
+        result.value = Result.success(true)
+      } catch (e: ResourceNotFoundException) {
+        result.value = Result.failure(e)
+      }
+    }
+    return result
+  }
+
+  fun clearPatientList() {
+    liveSearchedPaginatedPatients.value =
+      Pair(emptyList(), Pagination(totalItems = 0, pageSize = 1, currentPage = 0))
   }
 
   private fun getAssetFileAsString(filename: String): String {
@@ -146,6 +254,15 @@ class PatientListViewModel(application: Application, private val fhirEngine: Fhi
     val logicalId: String
   ) {
     override fun toString(): String = name
+  }
+
+  data class PatientStatus(val status: VaccineStatus, val details: String)
+
+  enum class VaccineStatus {
+    VACCINATED,
+    PARTIAL,
+    OVERDUE,
+    DUE
   }
 
   /** The Observation's details for display purposes. */

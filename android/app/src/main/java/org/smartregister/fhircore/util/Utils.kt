@@ -18,6 +18,7 @@ package org.smartregister.fhircore.util
 
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
 import ca.uhn.fhir.rest.param.ParamPrefixEnum
 import com.google.android.fhir.search.Search
@@ -26,6 +27,8 @@ import org.joda.time.DateTime
 import org.joda.time.LocalDate
 import org.joda.time.ReadablePartial
 import org.joda.time.Years
+import org.joda.time.format.DateTimeFormat
+import org.joda.time.format.DateTimeFormatter
 
 object Utils {
 
@@ -84,5 +87,39 @@ object Utils {
     DRAWABLE_TOP(1),
     DRAWABLE_RIGHT(2),
     DRAWABLE_BOTTOM(3)
+  }
+
+  fun addDays(initialDate: String, daysToAdd: Int = 0, returnDateFormat: String = "M-d-Y"): String {
+    val fmt: DateTimeFormatter = DateTimeFormat.forPattern(returnDateFormat)
+    val date: DateTime = DateTime.parse(initialDate)
+    return date.plusDays(daysToAdd).toString(fmt)
+  }
+
+  fun getViewsByTag(root: ViewGroup, tag: String): ArrayList<View>? {
+    val views = ArrayList<View>()
+    val childCount = root.childCount
+    for (i in 0 until childCount) {
+      val child = root.getChildAt(i)
+      if (child is ViewGroup) {
+        views.addAll(getViewsByTag(child, tag)!!)
+      }
+      val tagObj = child.tag
+      if (tagObj != null && tagObj == tag) {
+        views.add(child)
+      }
+    }
+    return views
+  }
+
+  fun hideViewsByTag(root: ViewGroup, tag: String) {
+    getViewsByTag(root, tag)?.forEach { it.visibility = View.GONE }
+  }
+
+  fun hideViewById(root: ViewGroup, id: Int) {
+    root.findViewById<View>(id).visibility = View.GONE
+  }
+
+  fun showViewById(root: ViewGroup, id: Int) {
+    root.findViewById<View>(id).visibility = View.VISIBLE
   }
 }

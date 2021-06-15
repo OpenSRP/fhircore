@@ -82,15 +82,7 @@ class SamplePatients {
       if (patient.hasTelecom() && patient.telecom[0].hasValue()) patient.telecom[0].value else ""
     val logicalId: String = patient.logicalId
 
-    return PatientListViewModel.PatientItem(
-      position.toString(),
-      name,
-      gender,
-      dob,
-      html,
-      phone,
-      logicalId
-    )
+    return PatientListViewModel.PatientItem(patient.id, name, gender, dob, html, phone, logicalId)
   }
 
   /** Returns list of ObservationItem objects based on observations from the json string. */

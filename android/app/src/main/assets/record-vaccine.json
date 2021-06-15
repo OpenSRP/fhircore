@@ -4,15 +4,15 @@
   "status": "active",
   "date": "2020-11-18T07:24:47.111Z",
   "subjectType": [
-    "Patient"
+    "Immunization"
   ],
   "extension": [
     {
       "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-itemContext",
       "valueExpression": {
         "language": "application/x-fhir-query",
-        "expression": "Patient",
-        "name": "patient"
+        "expression": "Immunization",
+        "name": "immunization"
       }
     }
   ],

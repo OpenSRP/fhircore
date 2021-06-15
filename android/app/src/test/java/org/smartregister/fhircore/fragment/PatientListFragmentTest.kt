@@ -21,6 +21,10 @@ import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
+import androidx.core.view.get
+import java.util.Date
+import org.hl7.fhir.r4.model.Immunization
+import org.joda.time.DateTime
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
@@ -76,7 +80,7 @@ class PatientListFragmentTest : RobolectricTest() {
 
     shadowOf(Looper.getMainLooper()).idle()
 
-    patientListFragment.onPatientItemClicked(patientItem)
+    patientListFragment.onPatientItemClicked(PatientListFragment.Intention.VIEW, patientItem)
 
     val shadowActivity = Shadows.shadowOf(patientListActivity)
     val startedActivityIntent = shadowActivity.peekNextStartedActivity()
@@ -132,6 +136,61 @@ class PatientListFragmentTest : RobolectricTest() {
       RelativeLayout.TRUE,
       buttonLayout.getRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
     )
+  }
+
+  @Test
+  fun testZeroVaccineVaccinationStatus() {
+    shadowOf(Looper.getMainLooper()).idle()
+
+    val results = mutableListOf<Immunization>()
+    val status = patientListFragment.patientListViewModel.computeVaccineStatus(results)
+
+    Assert.assertEquals(PatientListViewModel.VaccineStatus.DUE, status)
+  }
+
+  @Test
+  fun testFullyVaccinatedVaccinationStatus() {
+    shadowOf(Looper.getMainLooper()).idle()
+
+    var imm = Immunization()
+    imm.recorded = Date()
+    imm.status = Immunization.ImmunizationStatus.COMPLETED
+
+    val results = mutableListOf(imm, imm)
+
+    val status = patientListFragment.patientListViewModel.computeVaccineStatus(results)
+
+    Assert.assertEquals(PatientListViewModel.VaccineStatus.VACCINATED, status)
+  }
+
+  @Test
+  fun testPartiallyVaccinatedVaccinationStatus() {
+    shadowOf(Looper.getMainLooper()).idle()
+
+    var imm = Immunization()
+    imm.recorded = Date()
+    imm.status = Immunization.ImmunizationStatus.COMPLETED
+
+    val results = mutableListOf(imm)
+
+    val status = patientListFragment.patientListViewModel.computeVaccineStatus(results)
+
+    Assert.assertEquals(PatientListViewModel.VaccineStatus.PARTIAL, status)
+  }
+
+  @Test
+  fun testOverdueVaccinatedVaccinationStatus() {
+    shadowOf(Looper.getMainLooper()).idle()
+
+    var imm = Immunization()
+    imm.recorded = DateTime.now().minusDays(29).toDate()
+    imm.status = Immunization.ImmunizationStatus.COMPLETED
+
+    val results = mutableListOf(imm)
+
+    val status = patientListFragment.patientListViewModel.computeVaccineStatus(results)
+
+    Assert.assertEquals(PatientListViewModel.VaccineStatus.OVERDUE, status)
   }
 
   private fun <T : View?> getView(id: Int): T {

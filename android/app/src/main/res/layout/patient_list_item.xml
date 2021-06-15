@@ -40,7 +40,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/text_margin"
         android:layout_marginEnd="@dimen/small_text_margin"
-        android:text="Last seen 29-3-2021"
+        android:text="@string/client_last_seen"
         app:layout_constraintTop_toBottomOf="@id/tv_patient_demographics"
         app:layout_constraintLeft_toLeftOf="parent"
         android:textColor="#7A7A7A"
@@ -53,24 +53,101 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         android:background="#E6E6E6"
-        app:layout_constraintEnd_toStartOf="@id/tv_record_vaccine"
-        android:layout_marginEnd="20dp" />
+        app:layout_constraintEnd_toStartOf="@id/vaccine_action_container"
+        />
 
-    <TextView
-        android:id="@+id/tv_record_vaccine"
+    <LinearLayout
+        android:id="@+id/vaccine_action_container"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
+        android:orientation="vertical"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        android:text="Record\nvaccine"
-        android:textAllCaps="false"
-        android:textSize="20sp"
-        android:textColor="@color/colorPrimaryLight"
-        android:backgroundTint="@color/white"
-        android:gravity="center"
-        android:padding="20dp"
-        android:layout_marginEnd="20dp" />
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <LinearLayout
+            android:tag="status_container"
+            android:id="@+id/status_due_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/tv_record_vaccine"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:backgroundTint="@color/white"
+                android:gravity="center"
+                android:maxWidth="120sp"
+                android:minWidth="120sp"
+                android:padding="20dp"
+                android:text="@string/status_record_vaccine"
+                android:textAllCaps="false"
+                android:textColor="@color/colorPrimaryLight"
+                android:textSize="16sp" />
+        </LinearLayout>
+        <LinearLayout
+            android:tag="status_container"
+            android:id="@+id/status_fully_vaccinated_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:src="@drawable/tick" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:backgroundTint="@color/white"
+                android:gravity="center"
+                android:maxWidth="120sp"
+                android:minWidth="120sp"
+                android:text="@string/status_vaccinated"
+                android:textColor="@color/status_green"
+                android:textSize="15sp" />
+        </LinearLayout>
+        <LinearLayout
+            android:tag="status_container"
+            android:id="@+id/status_vaccinated_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/tv_vaccinated_previous_dose"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:backgroundTint="@color/white"
+                android:gravity="center"
+                android:maxWidth="120sp"
+                android:minWidth="120sp"
+                android:text="@string/status_received_vaccine"
+                android:textColor="@color/status_gray"
+                android:textSize="15sp" />
+        </LinearLayout>
+        <LinearLayout
+            android:tag="status_container"
+            android:id="@+id/status_overdue_container"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:background="@color/status_red"
+            android:layout_gravity="center"
+            android:gravity="center">
+            <TextView
+                android:id="@+id/tv_overdue_previous_dose"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:maxWidth="120sp"
+                android:minWidth="120sp"
+                android:minHeight="55dp"
+                android:textStyle="bold"
+                android:text="@string/status_overdue"
+                android:textColor="@color/white"
+                android:textSize="15sp" />
+        </LinearLayout>
+    </LinearLayout>
 
     <View
         android:layout_width="match_parent"

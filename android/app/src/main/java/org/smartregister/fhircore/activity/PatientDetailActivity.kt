@@ -62,7 +62,10 @@ class PatientDetailActivity : AppCompatActivity() {
         Intent(this, RecordVaccineActivity::class.java).apply {
           putExtra(QuestionnaireActivity.QUESTIONNAIRE_TITLE_KEY, "Record Vaccine")
           putExtra(QuestionnaireActivity.QUESTIONNAIRE_FILE_PATH_KEY, "record-vaccine.json")
-          putExtra(USER_ID, fragment.patitentId)
+
+          putExtra(PATIENT_ID, fragment.patitentId)
+          putExtra(DOSE_NUMBER, fragment.doseNumber)
+          putExtra(INITIAL_DOSE, fragment.initialDose)
         }
       )
     }

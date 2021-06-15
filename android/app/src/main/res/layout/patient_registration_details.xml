@@ -22,7 +22,7 @@
     android:layout_height="wrap_content">
 
     <CheckBox
-        android:id="@+id/observation_detail_checkbox"
+        android:id="@+id/registration_detail_checkbox"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_vertical"
@@ -32,7 +32,7 @@
         app:layout_constraintBottom_toBottomOf="@id/view_registration_detail"/>
 
     <TextView
-        android:id="@+id/observation_detail"
+        android:id="@+id/registration_detail"
         style="?android:attr/textAppearanceSmall"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -42,7 +42,7 @@
         android:textColor="@color/black"
         android:textIsSelectable="true"
         android:textSize="16sp"
-        app:layout_constraintStart_toEndOf="@+id/observation_detail_checkbox"
+        app:layout_constraintStart_toEndOf="@+id/registration_detail_checkbox"
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
@@ -55,8 +55,8 @@
         android:text="View Registration Details"
         android:textIsSelectable="true"
         android:textSize="14sp"
-        app:layout_constraintStart_toEndOf="@+id/observation_detail_checkbox"
-        app:layout_constraintTop_toBottomOf="@id/observation_detail" />
+        app:layout_constraintStart_toEndOf="@+id/registration_detail_checkbox"
+        app:layout_constraintTop_toBottomOf="@id/registration_detail" />
 
     <ImageView
         android:layout_width="wrap_content"
@@ -64,7 +64,7 @@
         android:layout_marginEnd="16dp"
         app:srcCompat = "@drawable/ic_forward_arrow"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/observation_detail"
+        app:layout_constraintTop_toTopOf="@id/registration_detail"
         app:layout_constraintBottom_toBottomOf="@id/view_registration_detail" />
 
     <View
@@ -74,18 +74,8 @@
         android:background="@color/light"
         app:layout_constraintTop_toBottomOf="@id/view_registration_detail" />
 
-    <CheckBox
-        android:id="@+id/vaccine_status_checkbox"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical"
-        android:layout_marginLeft="10dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/view_registration_detail"
-        app:layout_constraintBottom_toBottomOf="@id/vaccination_second_dose"/>
-
     <TextView
-        android:id="@+id/vaccination_status"
+        android:id="@+id/no_vaccination_placeholder"
         style="?android:attr/textAppearanceSmall"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -95,37 +85,16 @@
         android:textIsSelectable="true"
         android:textColor="@color/black"
         android:textSize="16sp"
-        app:layout_constraintStart_toEndOf="@+id/observation_detail_checkbox"
+        app:layout_constraintStart_toEndOf="@+id/registration_detail_checkbox"
         app:layout_constraintTop_toBottomOf="@id/view_registration" />
 
-    <TextView
-        android:id="@+id/vaccination_second_dose"
-        style="?android:attr/textAppearanceSmall"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:paddingStart="16dp"
-        android:visibility="gone"
-        android:text="No vaccine received"
-        android:textIsSelectable="true"
-        android:textSize="14sp"
-        app:layout_constraintStart_toEndOf="@+id/observation_detail_checkbox"
-        app:layout_constraintTop_toBottomOf="@id/vaccination_status" />
-
-    <ImageView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="16dp"
-        app:srcCompat = "@drawable/ic_forward_arrow"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/vaccination_status"
-        app:layout_constraintBottom_toBottomOf="@id/vaccination_second_dose" />
 
     <View
-        android:id="@+id/view_vaccination_status"
+        android:id="@+id/view_vaccination_status_separator"
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="@color/light"
         android:layout_marginTop="16dp"
-        app:layout_constraintTop_toBottomOf="@id/vaccination_second_dose" />
+        app:layout_constraintTop_toBottomOf="@id/no_vaccination_placeholder" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

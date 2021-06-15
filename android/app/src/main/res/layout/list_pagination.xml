@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/rl_pagination"
     android:layout_width="fill_parent"
     android:layout_height="@dimen/pagination_bar_height"
@@ -15,7 +16,8 @@
         android:focusable="true"
         android:gravity="center"
         android:text="@string/str_previous"
-        android:textSize="@dimen/pagination_bar_text_size" />
+        android:textSize="@dimen/pagination_bar_text_size"
+        android:textColor="@color/black"/>
 
     <TextView
         android:id="@+id/txt_page_info"
@@ -23,7 +25,9 @@
         android:layout_height="fill_parent"
         android:layout_centerInParent="true"
         android:gravity="center"
-        android:textSize="@dimen/pagination_bar_text_size" />
+        android:textSize="@dimen/pagination_bar_text_size"
+        tools:text="1 of 2"
+        android:textColor="@color/black"/>
 
     <Button
         android:id="@+id/btn_next_page"
@@ -35,5 +39,6 @@
         android:focusable="true"
         android:gravity="center"
         android:text="@string/str_next"
-        android:textSize="@dimen/pagination_bar_text_size" />
+        android:textSize="@dimen/pagination_bar_text_size"
+        android:textColor="@color/black"/>
 </RelativeLayout>

@@ -55,9 +55,9 @@ class FhirApplication : Application() {
     SharedPrefrencesHelper.init(this)
     val parser = FhirContext.forR4().newJsonParser()
     val service = create(parser)
-    val params = mutableMapOf("address-city" to "NAIROBI")
     val syncData: MutableList<SyncData> = ArrayList()
-    syncData.add(SyncData(ResourceType.Patient, params))
+    syncData.add(SyncData(ResourceType.Patient, mutableMapOf("address-city" to "NAIROBI")))
+    syncData.add(SyncData(ResourceType.Immunization))
     val configuration = SyncConfiguration(syncData, false)
     val periodicSyncConfiguration =
       PeriodicSyncConfiguration(

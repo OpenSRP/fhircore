@@ -18,6 +18,12 @@
   ],
   "item": [
     {
+      "linkId": "patient-barcode",
+      "definition": "http://hl7.org/fhir/StructureDefinition/Resource#Resource.id",
+      "type": "text",
+      "text": "Barcode"
+    },
+    {
       "linkId": "PR",
       "type": "group",
       "text": "Client info",

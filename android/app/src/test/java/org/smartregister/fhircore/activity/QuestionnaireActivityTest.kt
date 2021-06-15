@@ -71,37 +71,38 @@ class QuestionnaireActivityTest : ActivityRobolectricTest() {
     Assert.assertNotNull(fragment)
 
     val response = fragment.getQuestionnaireResponse()
+    // TODO change these to proper mapping
     Assert.assertEquals(
       TEST_PATIENT_1.name[0].given[0].toString(),
-      response.item[0].item[0].item[0].answer[0].value.toString()
+      response.item[1].item[0].item[0].answer[0].value.toString()
     )
     Assert.assertEquals(
       TEST_PATIENT_1.name[0].family,
-      response.item[0].item[0].item[1].answer[0].value.toString()
+      response.item[1].item[0].item[1].answer[0].value.toString()
     )
     Assert.assertEquals(
       TEST_PATIENT_1.birthDate.toString(),
-      response.item[0].item[1].answer[0].valueDateType.value.toString()
+      response.item[1].item[1].answer[0].valueDateType.value.toString()
     )
     Assert.assertEquals(
       TEST_PATIENT_1.gender.toCode(),
-      response.item[0].item[2].answer[0].value.toString()
+      response.item[1].item[2].answer[0].value.toString()
     )
     Assert.assertEquals(
       TEST_PATIENT_1.telecom[0].value,
-      response.item[0].item[3].item[1].answer[0].value.toString()
+      response.item[1].item[3].item[1].answer[0].value.toString()
     )
     Assert.assertEquals(
       TEST_PATIENT_1.address[0].city,
-      response.item[0].item[4].item[0].answer[0].value.toString()
+      response.item[1].item[4].item[0].answer[0].value.toString()
     )
     Assert.assertEquals(
       TEST_PATIENT_1.address[0].country,
-      response.item[0].item[4].item[1].answer[0].value.toString()
+      response.item[1].item[4].item[1].answer[0].value.toString()
     )
     Assert.assertEquals(
       TEST_PATIENT_1.active,
-      response.item[0].item[5].answer[0].valueBooleanType.booleanValue()
+      response.item[1].item[5].answer[0].valueBooleanType.booleanValue()
     )
   }
 

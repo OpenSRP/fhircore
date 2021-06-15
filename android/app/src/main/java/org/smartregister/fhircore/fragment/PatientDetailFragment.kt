@@ -21,16 +21,20 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import com.google.android.fhir.FhirEngine
+import kotlinx.coroutines.launch
+import org.hl7.fhir.r4.model.Immunization
+import org.hl7.fhir.r4.model.PositiveIntType
 import org.smartregister.fhircore.FhirApplication
 import org.smartregister.fhircore.R
 import org.smartregister.fhircore.activity.QuestionnaireActivity
 import org.smartregister.fhircore.adapter.ObservationItemRecyclerViewAdapter
-import org.smartregister.fhircore.util.SharedPrefrencesHelper
 import org.smartregister.fhircore.util.Utils
 import org.smartregister.fhircore.viewmodel.PatientListViewModel
 import org.smartregister.fhircore.viewmodel.PatientListViewModelFactory
@@ -44,6 +48,10 @@ class PatientDetailFragment : Fragment() {
   var patitentId: String? = null
   lateinit var rootView: View
   lateinit var viewModel: PatientListViewModel
+
+  val finalDoseNumber = 2
+  var doseNumber = 0
+  var initialDose: String = ""
 
   override fun onCreateView(
     inflater: LayoutInflater,
@@ -67,13 +75,6 @@ class PatientDetailFragment : Fragment() {
         )
         .get(PatientListViewModel::class.java)
 
-    viewModel
-      .getObservations()
-      .observe(
-        viewLifecycleOwner,
-        Observer<List<PatientListViewModel.ObservationItem>> { adapter.submitList(it) }
-      )
-
     viewModel.liveSearchPatient.observe(
       viewLifecycleOwner,
       Observer<PatientListViewModel.PatientItem> { setupPatientData(it) }
@@ -89,18 +90,47 @@ class PatientDetailFragment : Fragment() {
     }
     viewModel.searchResults()
 
-    updateVaccineStatus()
-
     return rootView
   }
 
-  private fun updateVaccineStatus() {
-    patitentId?.let {
-      val vaccineRecorded = SharedPrefrencesHelper.read(it, "")
-      vaccineRecorded?.let { it1 ->
-        if (it1.isNotEmpty()) {
-          val tvVaccineRecorded = rootView.findViewById<TextView>(R.id.vaccination_status)
-          tvVaccineRecorded.text = "Received $it1 dose 1"
+  private fun updateVaccineStatus(immunizations: List<Immunization>) {
+
+    var isFullyVaccinated = false
+    viewModel.viewModelScope.launch {
+      immunizations.forEach { immunization ->
+        doseNumber = (immunization.protocolApplied[0].doseNumber as PositiveIntType).value
+        initialDose = immunization.vaccineCode.coding.first().code
+        if (isFullyVaccinated) {
+          return@forEach
+        }
+        val nextDoseNumber = doseNumber + 1
+        val vaccineDate = immunization.occurrenceDateTimeType.toHumanDisplay()
+        val nextVaccineDate = Utils.addDays(vaccineDate, 28)
+        val tvVaccineRecorded = rootView.findViewById<TextView>(R.id.vaccination_status)
+        tvVaccineRecorded.text =
+          resources.getString(
+            R.string.immunization_brief_text,
+            immunization.vaccineCode.text,
+            doseNumber
+          )
+
+        val tvVaccineSecondDose = rootView.findViewById<TextView>(R.id.vaccination_second_dose)
+        val btnRecordVaccine = activity?.findViewById<Button>(R.id.btn_record_vaccine)
+        tvVaccineSecondDose.visibility = View.VISIBLE
+        if (doseNumber == finalDoseNumber) {
+          isFullyVaccinated = true
+          tvVaccineRecorded.text = resources.getString(R.string.fully_vaccinated)
+          tvVaccineSecondDose.text = resources.getString(R.string.view_vaccine_certificate)
+          if (btnRecordVaccine != null) {
+            btnRecordVaccine.visibility = View.GONE
+          }
+        } else {
+          tvVaccineSecondDose.text =
+            resources.getString(
+              R.string.immunization_next_dose_text,
+              nextDoseNumber,
+              nextVaccineDate
+            )
         }
       }
     }
@@ -108,7 +138,8 @@ class PatientDetailFragment : Fragment() {
 
   override fun onResume() {
     super.onResume()
-    updateVaccineStatus()
+    // load immunization data
+    viewModel.searchImmunizations(patitentId)
   }
 
   private fun setupPatientData(patient: PatientListViewModel.PatientItem?) {
@@ -122,6 +153,7 @@ class PatientDetailFragment : Fragment() {
           patient?.dob?.let { it1 -> Utils.getAgeFromDate(it1) }
       activity?.findViewById<TextView>(R.id.patient_bio_data)?.text = patientDetailLabel
       activity?.findViewById<TextView>(R.id.id_patient_number)?.text = "ID: " + patient.logicalId
+      patitentId = patient.logicalId
     }
   }
 

@@ -18,21 +18,24 @@ package org.smartregister.fhircore.adapter
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.lifecycle.Observer
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import org.smartregister.fhircore.R
 import org.smartregister.fhircore.domain.Pagination
 import org.smartregister.fhircore.fragment.NavigationDirection
+import org.smartregister.fhircore.fragment.PatientListFragment
 import org.smartregister.fhircore.viewholder.PaginationViewHolder
 import org.smartregister.fhircore.viewholder.PatientItemViewHolder
 import org.smartregister.fhircore.viewmodel.PatientListViewModel
 
 /** UI Controller helper class to monitor Patient viewmodel and display list of patients. */
 class PatientItemRecyclerViewAdapter(
-  private val onItemClicked: (PatientListViewModel.PatientItem) -> Unit,
+  private val onItemClicked:
+    (PatientListFragment.Intention, PatientListViewModel.PatientItem) -> Unit,
   private val paginationListener: (NavigationDirection, Int) -> Unit,
-  private val onRecordVaccineClicked: (PatientListViewModel.PatientItem) -> Unit
+  private val patientStatusObserver: (String, Observer<PatientListViewModel.PatientStatus>) -> Unit
 ) : ListAdapter<Any, RecyclerView.ViewHolder>(PatientItemDiffCallback()) {
 
   class PatientItemDiffCallback : DiffUtil.ItemCallback<Any>() {
@@ -71,7 +74,7 @@ class PatientItemRecyclerViewAdapter(
         holder.bindTo(
           item as PatientListViewModel.PatientItem,
           onItemClicked,
-          onRecordVaccineClicked
+          patientStatusObserver
         )
       is PaginationViewHolder -> holder.bindTo(item as Pagination, paginationListener)
     }

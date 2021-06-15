@@ -16,7 +16,7 @@ android {
         minSdkVersion sdk_versions.min_sdk
         targetSdkVersion sdk_versions.target_sdk
         versionCode 1
-        versionName "1.0"
+        versionName "0.0.3"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // Required when setting minSdkVersion to 20 or lower
         // See https://developer.android.com/studio/write/java8-support

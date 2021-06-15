@@ -18,6 +18,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.smartregister.fhircore">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA"/>
     <application
         android:name="org.smartregister.fhircore.FhirApplication"
         android:allowBackup="true"
