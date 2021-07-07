@@ -29,8 +29,17 @@ jobs:
       run: ./gradlew spotlessCheck
       working-directory: android
 
+    - name: Clone the google/android-fhir SDK
+      run: cd .. && git clone https://github.com/google/android-fhir.git && cd android-fhir && git checkout ek/sdc-structure-map-extraction-implementation
+
+    - name: Deploy the latest datacapture
+      run: cd ../android-fhir && sed -i 's/data-capture/datacapture/g' datacapture/build.gradle.kts && sed -i 's/0.1.0-alpha03/0.2.6-alpha02/g' datacapture/build.gradle.kts && ./gradlew :datacapture:publishToMavenLocal && cd ../fhircore
+
+    - name: Deploy the latest android-fhir engine
+      run: cd ../android-fhir && sed -i 's/0.1.0-alpha02/0.1.0-local03/g' engine/build.gradle.kts && sed -i 's/engine:0.0.2/engine:0.1.0-local03/g' ../fhircore/android/app/build.gradle && ./gradlew :engine:publishToMavenLocal && cd ../fhircore
+
     - name: Run unit tests with Gradle
-      run: ./gradlew jacocoTestReport --stacktrace
+      run: ./gradlew jacocoTestReport --stacktrace --debug
       working-directory: android
       env:
        FHIRCORE_USERNAME: ${{ secrets.FHIRCORE_USERNAME }}

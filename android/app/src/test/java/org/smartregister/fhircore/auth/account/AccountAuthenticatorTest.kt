@@ -29,15 +29,13 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import org.smartregister.fhircore.RobolectricTest
 import org.smartregister.fhircore.auth.OAuthResponse
-import org.smartregister.fhircore.robolectric.FhircoreTestRunner
 import org.smartregister.fhircore.shadow.FhirApplicationShadow
 
-@RunWith(FhircoreTestRunner::class)
 @Config(shadows = [FhirApplicationShadow::class])
-class AccountAuthenticatorTest {
+class AccountAuthenticatorTest : RobolectricTest() {
   private lateinit var accountAuthenticator: AccountAuthenticator
   private lateinit var accountHelper: AccountHelper
   private lateinit var accountManager: AccountManager

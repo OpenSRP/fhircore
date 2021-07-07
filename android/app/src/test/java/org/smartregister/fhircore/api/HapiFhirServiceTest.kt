@@ -25,14 +25,12 @@ import io.mockk.mockkObject
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
-import org.smartregister.fhircore.robolectric.FhircoreTestRunner
+import org.smartregister.fhircore.RobolectricTest
 import org.smartregister.fhircore.shadow.FhirApplicationShadow
 
-@RunWith(FhircoreTestRunner::class)
 @Config(shadows = [FhirApplicationShadow::class])
-class HapiFhirServiceTest {
+class HapiFhirServiceTest : RobolectricTest() {
   private var mockService: HapiFhirService? = null
   private val context = ApplicationProvider.getApplicationContext<Context>()
   private val parser = FhirContext.forR4().newJsonParser()

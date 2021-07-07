@@ -59,6 +59,7 @@ class FhirApplication : Application() {
     val params = mutableMapOf("address-city" to "NAIROBI")
     val syncData: MutableList<SyncData> = ArrayList()
     syncData.add(SyncData(ResourceType.Patient, params))
+    syncData.add(SyncData(ResourceType.StructureMap))
     val configuration = SyncConfiguration(syncData, false)
     val periodicSyncConfiguration =
       PeriodicSyncConfiguration(

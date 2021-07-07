@@ -16,17 +16,16 @@
 
 package org.smartregister.fhircore.activity
 
-import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import androidx.activity.viewModels
 import androidx.core.os.bundleOf
 import androidx.fragment.app.commit
 import androidx.lifecycle.viewModelScope
 import ca.uhn.fhir.context.FhirContext
-import ca.uhn.fhir.parser.IParser
 import com.google.android.fhir.datacapture.QuestionnaireFragment
-import com.google.android.fhir.datacapture.mapping.ResourceMapper
+import kotlinx.android.synthetic.main.activity_patient_detail.view.*
 import kotlinx.coroutines.launch
 import org.hl7.fhir.r4.model.BooleanType
 import org.hl7.fhir.r4.model.DateType
@@ -39,7 +38,7 @@ import org.smartregister.fhircore.R
 import org.smartregister.fhircore.fragment.PatientDetailFragment
 import org.smartregister.fhircore.viewmodel.QuestionnaireViewModel
 
-class QuestionnaireActivity : MultiLanguageBaseActivity() {
+class QuestionnaireActivity : MultiLanguageBaseActivity(), View.OnClickListener {
   private val viewModel: QuestionnaireViewModel by viewModels()
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,32 +56,17 @@ class QuestionnaireActivity : MultiLanguageBaseActivity() {
       supportFragmentManager.commit { add(R.id.container, fragment, QUESTIONNAIRE_FRAGMENT_TAG) }
     }
 
-    findViewById<Button>(R.id.btn_save_client_info).setOnClickListener {
-      val questionnaireFragment =
-        supportFragmentManager.findFragmentByTag(QUESTIONNAIRE_FRAGMENT_TAG) as
-          QuestionnaireFragment
-      savePatientResource(questionnaireFragment.getQuestionnaireResponse())
-    }
+    findViewById<Button>(R.id.btn_save_client_info).setOnClickListener(this)
   }
 
-  fun savePatientResource(questionnaireResponse: QuestionnaireResponse) {
-
-    val iParser: IParser = FhirContext.forR4().newJsonParser()
-    val questionnaire =
-      iParser.parseResource(
-        org.hl7.fhir.r4.model.Questionnaire::class.java,
-        viewModel.questionnaire
-      ) as
-        Questionnaire
-
-    val patient = ResourceMapper.extract(questionnaire, questionnaireResponse) as Patient
-
-    patient.id =
-      intent.getStringExtra(PatientDetailFragment.ARG_ITEM_ID) ?: patient.name.first().family
-
-    viewModel.savePatient(patient)
-
-    this.startActivity(Intent(this, PatientListActivity::class.java))
+  fun saveExtractedResources(questionnaireResponse: QuestionnaireResponse) {
+    viewModel.saveExtractedResources(
+      this@QuestionnaireActivity,
+      intent,
+      viewModel.questionnaire,
+      questionnaireResponse
+    )
+    finish()
   }
 
   private fun getQuestionnaire(): String {
@@ -199,5 +183,11 @@ class QuestionnaireActivity : MultiLanguageBaseActivity() {
     const val QUESTIONNAIRE_TITLE_KEY = "questionnaire-title-key"
     const val QUESTIONNAIRE_FILE_PATH_KEY = "questionnaire-file-path-key"
     const val QUESTIONNAIRE_FRAGMENT_TAG = "questionannire-fragment-tag"
+  }
+
+  override fun onClick(v: View?) {
+    val questionnaireFragment =
+      supportFragmentManager.findFragmentByTag(QUESTIONNAIRE_FRAGMENT_TAG) as QuestionnaireFragment
+    saveExtractedResources(questionnaireFragment.getQuestionnaireResponse())
   }
 }

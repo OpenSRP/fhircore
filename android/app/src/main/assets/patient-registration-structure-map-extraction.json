@@ -1,0 +1,97 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "client-registration-sample",
+  "status": "active",
+  "date": "2020-11-18T07:24:47.111Z",
+  "subjectType": [
+    "Patient"
+  ],
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-targetStructureMap",
+      "valueCanonical": "https://fhir.labs.smartregister.org/StructureMap/383"
+    }
+  ],
+  "item": [
+    {
+      "linkId": "PR",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "PR-name",
+          "type": "group",
+          "item": [
+            {
+              "linkId": "PR-name-given",
+              "type": "string",
+              "text": "First Name"
+            },
+            {
+              "linkId": "PR-name-family",
+              "type": "string",
+              "text": "Family Name"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-0-birth-date",
+          "type": "date",
+          "text": "Date of Birth"
+        },
+        {
+          "linkId": "patient-0-gender",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+              "valueCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/questionnaire-item-control",
+                    "code": "radio-button",
+                    "display": "Radio Button"
+                  }
+                ],
+                "text": "A control where choices are listed with a button beside them. The button can be toggled to select or de-select a given choice. Selecting one item deselects all others."
+              }
+            }
+          ],
+          "type": "string",
+          "text": "Gender"
+        },
+        {
+          "linkId": "PR-telecom",
+          "type": "group",
+          "item": [
+            {
+              "linkId": "PR-telecom-system",
+              "type": "string",
+              "text": "system",
+              "initial": [
+                {
+                  "valueString": "phone"
+                }
+              ],
+              "enableWhen": [
+                {
+                  "question": "patient-0-gender",
+                  "operator": "=",
+                  "answerString": "ok"
+                }
+              ]
+            },
+            {
+              "linkId": "PR-telecom-value",
+              "type": "string",
+              "text": "Phone Number"
+            }
+          ]
+        },
+        {
+          "linkId": "PR-active",
+          "type": "boolean",
+          "text": "Is Active?"
+        }
+      ]
+    }
+  ]
+}

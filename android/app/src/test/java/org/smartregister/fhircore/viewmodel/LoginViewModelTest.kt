@@ -21,7 +21,6 @@ import android.accounts.AccountManagerFuture
 import android.os.Bundle
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkStatic
 import io.mockk.spyk
 import org.junit.Assert
 import org.junit.Before
@@ -61,13 +60,8 @@ class LoginViewModelTest : RobolectricTest() {
 
   @Test
   fun testOnFailureShouldVerifyInternalCalls() {
-
-    mockkStatic(Throwable::stackTraceToString)
-
     val call = mockk<Call<OAuthResponse>>()
-    val t = mockk<Throwable>()
-
-    every { t.stackTraceToString() } returns ""
+    val t = Exception("Some sample message")
 
     setUsernameAndPassword()
     viewModel.secureConfig.saveCredentials(Credentials("testuser", charArrayOf('a'), "dummy_token"))
