@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Evaluate CQL-based `initialExpression` (`text/cql-identifier` and `text/cql`) on Questionnaire items using the linked `cqf-library` Library, so CQL-derived defaults prepopulate answers the same way FHIRPath `initialExpression` already does. Skipped when reopening a saved/editable/read-only/summary/draft response. See `android/feature/cql-initial-expression.md`.
+
 ## [1.1.1] - 2024-05-20
 
 ### Added

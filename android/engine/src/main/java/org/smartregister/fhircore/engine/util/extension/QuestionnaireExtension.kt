@@ -56,12 +56,23 @@ fun Questionnaire.extractByStructureMap() =
 fun Questionnaire.cqfLibraryIds() =
   this.extension
     .filter { it.url.contains("cqf-library", ignoreCase = true) }
-    .mapNotNull { it.value?.asStringValue()?.replace("Library/", "") }
+    .mapNotNull { it.cqfLibraryValue()?.replace("Library/", "") }
 
 fun Questionnaire.cqfLibraryUrls() =
   this.extension
     .filter { it.url.contains("cqf-library", ignoreCase = true) }
-    .mapNotNull { it.value?.asStringValue() }
+    .mapNotNull { it.cqfLibraryValue() }
+
+/** Supports valueString and valueCanonical for cqf-library extensions. */
+private fun org.hl7.fhir.r4.model.Extension.cqfLibraryValue(): String? {
+  val value = this.value ?: return null
+  return when (value) {
+    is org.hl7.fhir.r4.model.CanonicalType -> value.value
+    is org.hl7.fhir.r4.model.UriType -> value.value
+    is org.hl7.fhir.r4.model.StringType -> value.value
+    else -> value.asStringValue()?.takeIf { it.isNotBlank() }
+  }
+}
 
 fun QuestionnaireResponse.findSubject(bundle: Bundle?) =
   IdType(this.subject.reference).let { subject ->

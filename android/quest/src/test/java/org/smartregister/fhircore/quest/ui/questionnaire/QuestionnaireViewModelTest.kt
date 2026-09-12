@@ -2074,6 +2074,96 @@ class QuestionnaireViewModelTest : RobolectricTest() {
     }
 
   @Test
+  fun testPopulateQuestionnaireEvaluatesCqlBasedInitialExpression() = runTest {
+    val questionnaireViewModelInstance =
+      QuestionnaireViewModel(
+        defaultRepository = defaultRepository,
+        dispatcherProvider = dispatcherProvider,
+        fhirCarePlanGenerator = fhirCarePlanGenerator,
+        rulesExecutor = rulesExecutor,
+        transformSupportServices = mockk(),
+        sharedPreferencesHelper = sharedPreferencesHelper,
+        fhirOperator = fhirOperator,
+        fhirValidatorRequestHandlerProvider = fhirValidatorRequestHandlerProvider,
+        fhirPathDataExtractor = fhirPathDataExtractor,
+        configurationRegistry = configurationRegistry,
+      )
+    val cqlIdentifier = "hasChronicCondition"
+    val questionnaireWithCqlInitExpr =
+      Questionnaire().apply {
+        id = questionnaireConfig.id
+        addExtension(
+          Extension(
+            "http://hl7.org/fhir/StructureDefinition/cqf-library",
+            StringType("http://example.org/Library/test-cql-lib|1.0.0"),
+          ),
+        )
+        addItem(
+          QuestionnaireItemComponent().apply {
+            linkId = "chronicCondition"
+            type = Questionnaire.QuestionnaireItemType.BOOLEAN
+            addExtension(
+              Extension(
+                "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+                Expression().apply {
+                  language = "text/cql-identifier"
+                  expression = cqlIdentifier
+                },
+              ),
+            )
+          },
+        )
+      }
+
+    // New questionnaire (not edit/draft) so CQL initialExpression population runs.
+    val thisConfig =
+      questionnaireConfig.copy(
+        resourceType = ResourceType.Patient,
+        resourceIdentifier = "patient-1",
+        type = QuestionnaireType.DEFAULT.name,
+      )
+
+    coEvery { fhirEngine.get(ResourceType.Questionnaire, thisConfig.id) } returns
+      questionnaireWithCqlInitExpr
+    coEvery { defaultRepository.loadResource("patient-1", ResourceType.Patient) } returns patient
+
+    val cqlResultParams =
+      Parameters().apply {
+        addParameter(
+          Parameters.ParametersParameterComponent().apply {
+            name = cqlIdentifier
+            value = BooleanType(true)
+          },
+        )
+      }
+    coEvery { fhirOperator.evaluateLibrary(any(), any(), any(), any(), any()) } returns
+      cqlResultParams
+
+    questionnaireViewModelInstance.populateQuestionnaire(
+      questionnaireWithCqlInitExpr,
+      thisConfig,
+      emptyList(),
+    )
+
+    val initial =
+      questionnaireWithCqlInitExpr.item
+        .first { it.linkId == "chronicCondition" }
+        .initial
+        .firstOrNull()
+        ?.value
+    Assert.assertTrue(initial is BooleanType && (initial as BooleanType).booleanValue())
+    coVerify {
+      fhirOperator.evaluateLibrary(
+        any(),
+        any(),
+        any(),
+        any(),
+        any(),
+      )
+    }
+  }
+
+  @Test
   fun testThatPopulateQuestionnaireReturnsQuestionnaireResponseWithUnAnsweredRemoved() = runTest {
     val questionnaireViewModelInstance =
       QuestionnaireViewModel(

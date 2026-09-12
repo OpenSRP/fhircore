@@ -54,12 +54,14 @@ import org.hl7.fhir.r4.model.ListResource
 import org.hl7.fhir.r4.model.ListResource.ListEntryComponent
 import org.hl7.fhir.r4.model.MedicationRequest
 import org.hl7.fhir.r4.model.Parameters
+import org.hl7.fhir.r4.model.Patient
 import org.hl7.fhir.r4.model.Questionnaire
 import org.hl7.fhir.r4.model.QuestionnaireResponse
 import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemComponent
 import org.hl7.fhir.r4.model.RelatedPerson
 import org.hl7.fhir.r4.model.Resource
 import org.hl7.fhir.r4.model.ResourceType
+import org.hl7.fhir.r4.model.StringType
 import org.hl7.fhir.r4.model.StructureMap
 import org.smartregister.fhircore.engine.BuildConfig
 import org.smartregister.fhircore.engine.configuration.ConfigType
@@ -94,6 +96,7 @@ import org.smartregister.fhircore.engine.util.extension.extractLogicalIdUuid
 import org.smartregister.fhircore.engine.util.extension.extractLogicalIdUuidFromURI
 import org.smartregister.fhircore.engine.util.extension.find
 import org.smartregister.fhircore.engine.util.extension.generateMissingId
+import org.smartregister.fhircore.engine.util.extension.initialExpression
 import org.smartregister.fhircore.engine.util.extension.isIn
 import org.smartregister.fhircore.engine.util.extension.prepopulateWithComputedConfigValues
 import org.smartregister.fhircore.engine.util.extension.questionnaireResponseStatus
@@ -966,6 +969,129 @@ constructor(
     }
 
   /**
+   * Evaluates CQL-based `initialExpression` extensions (`text/cql-identifier` or `text/cql`) when
+   * the Questionnaire declares one or more `cqf-library` extensions.
+   *
+   * Results are written to [Questionnaire.QuestionnaireItemComponent.initial] and the CQL
+   * `initialExpression` is removed so [ResourceMapper.populate] can seed the
+   * [QuestionnaireResponse] from those initials.
+   */
+  private suspend fun evaluateCqlInitialExpressions(
+    questionnaire: Questionnaire,
+    launchContextResources: List<Resource>,
+  ) {
+    val cqlLibraryUrls = questionnaire.cqfLibraryUrls()
+    if (cqlLibraryUrls.isEmpty()) return
+
+    val subject =
+      launchContextResources.firstOrNull { res ->
+        questionnaire.subjectType.firstOrNull()?.code.equals(res.resourceType.name, ignoreCase = true)
+      } ?: launchContextResources.firstOrNull()
+
+    if (subject == null) return
+
+    val expressionSet = mutableSetOf<String>()
+    collectCqlInitialExpressionItems(questionnaire.item, expressionSet)
+    if (expressionSet.isEmpty()) return
+
+    val dataBundle =
+      Bundle().apply {
+        launchContextResources.forEach { addEntry(Bundle.BundleEntryComponent().setResource(it)) }
+      }
+
+    val inputParameters = Parameters()
+    launchContextResources.firstOrNull { it.resourceType == ResourceType.Encounter }?.let { enc ->
+      inputParameters.addParameter(
+        Parameters.ParametersParameterComponent().apply {
+          name = "encounterid"
+          value = StringType(enc.logicalId)
+        },
+      )
+    }
+    (subject as? Patient)?.let { p ->
+      inputParameters.addParameter(
+        Parameters.ParametersParameterComponent().apply {
+          name = "patient"
+          value = StringType(p.logicalId)
+        },
+      )
+    }
+
+    cqlLibraryUrls.distinct().forEach { libraryUrl ->
+      runCatching {
+          val resultParameters =
+            fhirOperator.evaluateLibrary(
+              libraryUrl,
+              subject.asReference().reference,
+              if (inputParameters.hasParameter()) inputParameters else null,
+              dataBundle,
+              expressionSet,
+            ) as? Parameters
+              ?: return@forEach
+
+          applyCqlExpressionResultsToInitial(questionnaire.item, resultParameters, expressionSet)
+        }
+        .onFailure { e ->
+          Timber.e(e, "Failed to evaluate CQL initialExpression using library $libraryUrl")
+        }
+    }
+  }
+
+  private fun collectCqlInitialExpressionItems(
+    items: List<Questionnaire.QuestionnaireItemComponent>,
+    expressionSet: MutableSet<String>,
+  ) {
+    items.forEach { item ->
+      item.initialExpression?.let { expr ->
+        if (
+          !expr.expression.isNullOrBlank() &&
+            expr.language in CQL_INITIAL_EXPRESSION_LANGUAGES
+        ) {
+          expressionSet.add(expr.expression)
+        }
+      }
+      if (item.item.isNotEmpty()) {
+        collectCqlInitialExpressionItems(item.item, expressionSet)
+      }
+    }
+  }
+
+  private fun applyCqlExpressionResultsToInitial(
+    items: List<Questionnaire.QuestionnaireItemComponent>,
+    resultParameters: Parameters,
+    expressionSet: Set<String>,
+  ) {
+    items.forEach { item ->
+      item.initialExpression?.let { expr ->
+        val exprName = expr.expression
+        if (
+          !exprName.isNullOrBlank() &&
+            expressionSet.contains(exprName) &&
+            expr.language in CQL_INITIAL_EXPRESSION_LANGUAGES
+        ) {
+          val param = resultParameters.getParameter(exprName)
+          if (param != null) {
+            val cqlResultValue = (param.value ?: param.resource) as? org.hl7.fhir.r4.model.Type
+            if (cqlResultValue != null) {
+              // Avoid ResourceMapper rejecting items that have both initial and initialExpression.
+              item.removeExtension(org.smartregister.fhircore.engine.util.extension.EXTENSION_INITIAL_EXPRESSION_URL)
+              item.initial =
+                mutableListOf(
+                  Questionnaire.QuestionnaireItemInitialComponent().apply {
+                    value = cqlResultValue
+                  },
+                )
+            }
+          }
+        }
+      }
+      if (item.item.isNotEmpty()) {
+        applyCqlExpressionResultsToInitial(item.item, resultParameters, expressionSet)
+      }
+    }
+  }
+
+  /**
    * This function generates CarePlans for the [QuestionnaireResponse.subject] using the configured
    * [QuestionnaireConfig.planDefinitions]
    */
@@ -1188,6 +1314,19 @@ constructor(
         },
       )
 
+      // Apply CQL initialExpression defaults before ResourceMapper.populate so they become QR answers.
+      // Skip when reopening a saved/editable/draft response (saved answers take precedence).
+      val willLoadSavedResponse =
+        resourceType != null &&
+          !resourceIdentifier.isNullOrEmpty() &&
+          (questionnaireConfig.isEditable() ||
+            questionnaireConfig.isReadOnly() ||
+            questionnaireConfig.isSummary() ||
+            questionnaireConfig.saveDraft)
+      if (!willLoadSavedResponse) {
+        evaluateCqlInitialExpressions(questionnaire, launchContextResources)
+      }
+
       // Populate questionnaire with latest QuestionnaireResponse and initial default values
       val questionnaireResponse =
         fetchRepositoryQuestionnaireResponse(
@@ -1375,6 +1514,7 @@ constructor(
     const val CONTAINED_LIST_TITLE = "GeneratedResourcesList"
     const val OUTPUT_PARAMETER_KEY = "OUTPUT"
     const val DELIMITER = ","
+    private val CQL_INITIAL_EXPRESSION_LANGUAGES = setOf("text/cql-identifier", "text/cql")
   }
 }
 
