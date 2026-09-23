@@ -268,35 +268,27 @@ class TokenAuthenticatorTest : RobolectricTest() {
 
   @Test
   @ExperimentalCoroutinesApi
-  fun testFetchTokenShouldShouldCatchHttpAndUnknownHostAndSSLHandshakeExceptions() {
+  fun testFetchAccessTokenShouldCatchAllNetworkExceptions() {
     val username = sampleUsername
     val password = charArrayOf('P', '4', '5', '5', 'W', '4', '0')
 
-    val httpException = HttpException(Response.success(null))
+    // Test with various exception types to verify generic exception handling
+    val exceptions =
+      listOf(
+        HttpException(Response.error<OAuthResponse>(401, mockk(relaxed = true))),
+        UnknownHostException(),
+        SSLHandshakeException("SSL error"),
+        IOException("IO error"),
+      )
 
-    coEvery { oAuthService.fetchToken(any()) }.throws(httpException)
+    exceptions.forEach { exception ->
+      coEvery { oAuthService.fetchToken(any()) }.throws(exception)
 
-    runTest {
-      var result = tokenAuthenticator.fetchAccessToken(username, password)
-      Assert.assertEquals(Result.failure<HttpException>(httpException), result)
-    }
-
-    val unknownHostException = UnknownHostException()
-
-    coEvery { oAuthService.fetchToken(any()) }.throws(unknownHostException)
-
-    runTest {
-      var result = tokenAuthenticator.fetchAccessToken(username, password)
-      Assert.assertEquals(Result.failure<UnknownHostException>(unknownHostException), result)
-    }
-
-    val sslHandshakeException = SSLHandshakeException("reason")
-
-    coEvery { oAuthService.fetchToken(any()) }.throws(sslHandshakeException)
-
-    runTest {
-      var result = tokenAuthenticator.fetchAccessToken(username, password)
-      Assert.assertEquals(Result.failure<SSLHandshakeException>(sslHandshakeException), result)
+      runTest {
+        val result = tokenAuthenticator.fetchAccessToken(username, password)
+        Assert.assertTrue(result.isFailure)
+        Assert.assertEquals(exception, result.exceptionOrNull())
+      }
     }
   }
 

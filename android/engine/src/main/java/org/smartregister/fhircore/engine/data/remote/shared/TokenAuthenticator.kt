@@ -169,6 +169,8 @@ constructor(
       Result.failure(unknownHostException)
     } catch (sslHandShakeException: SSLHandshakeException) {
       Result.failure(sslHandShakeException)
+    } catch (e: Exception) {
+      Result.failure(e)
     }
   }
 
