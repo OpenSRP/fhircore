@@ -19,11 +19,14 @@ package org.smartregister.fhircore.quest.ui.pdf
 import androidx.lifecycle.ViewModel
 import com.google.android.fhir.search.Search
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.Locale
 import javax.inject.Inject
 import org.hl7.fhir.r4.model.Binary
 import org.hl7.fhir.r4.model.QuestionnaireResponse
 import org.hl7.fhir.r4.model.ResourceType
+import org.smartregister.fhircore.engine.configuration.ConfigurationRegistry
 import org.smartregister.fhircore.engine.data.local.DefaultRepository
+import org.smartregister.fhircore.engine.util.helper.LocalizationHelper
 
 /**
  * ViewModel for managing PDF generation related operations.
@@ -32,12 +35,14 @@ import org.smartregister.fhircore.engine.data.local.DefaultRepository
  * required for generating PDFs.
  *
  * @param defaultRepository The repository for accessing local data.
+ * @param configurationRegistry The registry for configuration and localization support.
  */
 @HiltViewModel
 class PdfLauncherViewModel
 @Inject
 constructor(
   val defaultRepository: DefaultRepository,
+  val configurationRegistry: ConfigurationRegistry,
 ) : ViewModel() {
 
   /**
@@ -85,5 +90,18 @@ constructor(
    */
   suspend fun retrieveBinary(binaryId: String): Binary? {
     return defaultRepository.loadResource<Binary>(binaryId)
+  }
+
+  /**
+   * Provides a translation lambda for HtmlPopulator.
+   *
+   * @return A function that takes a translation key and returns the translated string.
+   */
+  fun getTranslationProvider(): (String) -> String = { translationKey ->
+    configurationRegistry.localizationHelper.parseTemplate(
+      LocalizationHelper.STRINGS_BASE_BUNDLE_NAME,
+      Locale.getDefault(),
+      "{{$translationKey}}",
+    )
   }
 }

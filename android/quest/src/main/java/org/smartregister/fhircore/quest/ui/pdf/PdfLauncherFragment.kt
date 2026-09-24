@@ -108,7 +108,9 @@ class PdfLauncherFragment : DialogFragment() {
     }
 
     val htmlContent = htmlBinary.content.decodeToString()
-    val populatedHtml = HtmlPopulator(questionnaireResponses).populateHtml(htmlContent)
+    val populatedHtml =
+      HtmlPopulator(questionnaireResponses, pdfLauncherViewModel.getTranslationProvider())
+        .populateHtml(htmlContent)
 
     withContext(Dispatchers.Main) {
       pdfGenerator.generatePdfWithHtml(populatedHtml, htmlTitle) { dismiss() }

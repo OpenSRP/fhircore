@@ -31,14 +31,18 @@ import org.smartregister.fhircore.engine.util.extension.valueToString
 /**
  * HtmlPopulator class is responsible for processing an HTML template by replacing custom tags with
  * data from QuestionnaireResponses. The class uses various regex patterns to find and replace
- * custom tags such as @is-not-empty, @answer-as-list, @answer, @submitted-date, @contains,
- * and @is-questionnaire-submitted.
+ * custom tags such
+ * as @is-not-empty, @answer-as-list, @answer, @submitted-date, @contains, @is-questionnaire-submitted,
+ * and @translate.
  *
  * @property questionnaireResponses The QuestionnaireResponses object containing data for
  *   replacement.
+ * @property translationProvider A high-order function that takes a translation key and returns the
+ *   translated string. Defaults to returning an empty string.
  */
 class HtmlPopulator(
   questionnaireResponses: List<QuestionnaireResponse>,
+  private val translationProvider: (String) -> String = { "" },
 ) {
   private var answerMap: Map<String, List<QuestionnaireResponseItemAnswerComponent>>
   private var submittedDateMap: Map<String, Date>
@@ -103,6 +107,10 @@ class HtmlPopulator(
         html.startsWith("@is-questionnaire-submitted", i) -> {
           val matcher = isQuestionnaireSubmittedPattern.matcher(html.substring(i))
           if (matcher.find()) processIsQuestionnaireSubmitted(i, html, matcher) else i++
+        }
+        html.startsWith("@translate", i) -> {
+          val matcher = translatePattern.matcher(html.substring(i))
+          if (matcher.find()) processTranslate(i, html, matcher) else i++
         }
         else -> i++
       }
@@ -246,6 +254,20 @@ class HtmlPopulator(
     }
   }
 
+  /**
+   * Processes the @translate tag by calling the translation provider lambda to resolve the
+   * translation key.
+   *
+   * @param i The starting index of the tag in the HTML.
+   * @param html The StringBuilder containing the HTML.
+   * @param matcher The Matcher object for the regex pattern.
+   */
+  private fun processTranslate(i: Int, html: StringBuilder, matcher: Matcher) {
+    val translationKey = matcher.group(1)
+    val translatedValue = translationProvider(translationKey)
+    html.replace(i, matcher.end() + i, translatedValue)
+  }
+
   companion object {
     // Compile regex patterns for different tags
     private val isNotEmptyPattern =
@@ -260,5 +282,6 @@ class HtmlPopulator(
       Pattern.compile(
         "@is-questionnaire-submitted\\('([^']+)'\\)((?s).*?)@is-questionnaire-submitted\\('\\1'\\)",
       )
+    private val translatePattern = Pattern.compile("@translate\\('([^']+)'\\)")
   }
 }

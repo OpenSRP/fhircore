@@ -33,6 +33,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.smartregister.fhircore.engine.configuration.ConfigurationRegistry
 import org.smartregister.fhircore.engine.data.local.ContentCache
 import org.smartregister.fhircore.engine.data.local.DefaultRepository
 import org.smartregister.fhircore.engine.util.extension.asReference
@@ -49,18 +50,20 @@ class PdfLauncherViewModelTest : RobolectricTest() {
 
   private lateinit var fhirEngine: FhirEngine
   private lateinit var defaultRepository: DefaultRepository
+  private lateinit var configurationRegistry: ConfigurationRegistry
   private lateinit var viewModel: PdfLauncherViewModel
 
   @Before
   fun setUp() {
     hiltAndroidRule.inject()
     fhirEngine = mockk()
+    configurationRegistry = mockk()
     defaultRepository =
       DefaultRepository(
         fhirEngine = fhirEngine,
         dispatcherProvider = mockk(),
         sharedPreferencesHelper = mockk(),
-        configurationRegistry = mockk(),
+        configurationRegistry = configurationRegistry,
         configService = mockk(),
         configRulesExecutor = mockk(),
         fhirPathDataExtractor = mockk(),
@@ -68,7 +71,7 @@ class PdfLauncherViewModelTest : RobolectricTest() {
         context = mockk(),
         contentCache = contentCache,
       )
-    viewModel = PdfLauncherViewModel(defaultRepository)
+    viewModel = PdfLauncherViewModel(defaultRepository, configurationRegistry)
   }
 
   @Test
