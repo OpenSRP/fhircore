@@ -29,6 +29,7 @@ data class PdfConfig(
   val structureReference: String? = null,
   val subjectReference: String? = null,
   val questionnaireReferences: List<String> = emptyList(),
+  val questionnaireResponseReferences: List<String> = emptyList(),
 ) : java.io.Serializable, Parcelable {
 
   fun interpolate(computedValuesMap: Map<String, Any>) =
@@ -38,5 +39,7 @@ data class PdfConfig(
       structureReference = structureReference?.interpolate(computedValuesMap),
       subjectReference = subjectReference?.interpolate(computedValuesMap),
       questionnaireReferences = questionnaireReferences.map { it.interpolate(computedValuesMap) },
+      questionnaireResponseReferences =
+        questionnaireResponseReferences.map { it.interpolate(computedValuesMap) },
     )
 }

@@ -78,6 +78,18 @@ constructor(
   }
 
   /**
+   * Retrieve the [QuestionnaireResponse] directly by its resource ID.
+   *
+   * @param questionnaireResponseId The ID of the QuestionnaireResponse resource.
+   * @return The [QuestionnaireResponse] if found, otherwise null.
+   */
+  suspend fun retrieveQuestionnaireResponseById(
+    questionnaireResponseId: String,
+  ): QuestionnaireResponse? {
+    return defaultRepository.loadResource<QuestionnaireResponse>(questionnaireResponseId)
+  }
+
+  /**
    * Retrieve the [Binary] resource for the given binary ID.
    *
    * @param binaryId The ID of the binary resource.
