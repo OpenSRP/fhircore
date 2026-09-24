@@ -67,6 +67,9 @@ constructor(
   private val authConfiguration by lazy { configService.provideAuthConfiguration() }
   private var isLoginPageRendered = false
 
+  /** When true, suppresses automatic LoginActivity launch (e.g., during questionnaire filling) */
+  var suppressLoginRedirect = false
+
   fun getAccessToken(): String {
     val account = findAccount() ?: return ""
     val accessToken = accountManager.peekAuthToken(account, AUTH_TOKEN_TYPE) ?: ""
@@ -118,12 +121,16 @@ constructor(
         bundle.containsKey(AccountManager.KEY_INTENT) -> {
           val launchIntent = bundle.get(AccountManager.KEY_INTENT) as? Intent
 
-          // Deletes session PIN to allow reset
-          secureSharedPreference.deleteSessionPin()
+          if (suppressLoginRedirect) {
+            Timber.w("Login redirect suppressed — questionnaire in progress")
+          } else {
+            // Deletes session PIN to allow reset
+            secureSharedPreference.deleteSessionPin()
 
-          if (launchIntent != null && !isLoginPageRendered) {
-            context.startActivity(launchIntent.putExtra(CANCEL_BACKGROUND_SYNC, true))
-            isLoginPageRendered = true
+            if (launchIntent != null && !isLoginPageRendered) {
+              context.startActivity(launchIntent.putExtra(CANCEL_BACKGROUND_SYNC, true))
+              isLoginPageRendered = true
+            }
           }
         }
       }
