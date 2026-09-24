@@ -81,12 +81,24 @@ fun String.messageFormat(locale: Locale?, vararg arguments: Any?): String? =
   MessageFormat(this, locale).format(arguments)
 
 /**
- * Creates identifier from string text by doing clean up on the passed value
+ * Creates a translation property key from string text by normalizing the input.
  *
- * @return string.properties key to be used in string look ups
+ * This function:
+ * 1. Trims leading/trailing whitespace
+ * 2. Converts to lowercase
+ * 3. Replaces all non-alphanumeric characters with dots
+ * 4. Removes leading/trailing dots
+ *
+ * Example:
+ * ```
+ * "Discuss Confidentiality".translationPropertyKey() // Returns "discuss.confidentiality"
+ * "  C-SSRS  ".translationPropertyKey() // Returns "c.ssrs"
+ * ```
+ *
+ * @return string.properties key to be used in translation lookups
  */
 fun String.translationPropertyKey(): String {
-  return this.trim { it <= ' ' }.lowercase(Locale.ENGLISH).replace(" ".toRegex(), ".")
+  return this.trim().lowercase(Locale.ENGLISH).replace("[^a-z0-9]+".toRegex(), ".").trim('.')
 }
 
 /**

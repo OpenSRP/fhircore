@@ -16,8 +16,11 @@
 
 package org.smartregister.fhircore.engine.util.extension
 
+import java.util.Locale
 import org.hl7.fhir.r4.model.Coding
 import org.hl7.fhir.r4.model.Task
+import org.smartregister.fhircore.engine.configuration.ConfigurationRegistry
+import org.smartregister.fhircore.engine.util.helper.LocalizationHelper
 
 fun Task.hasPastEnd() =
   this.hasExecutionPeriod() &&
@@ -62,3 +65,29 @@ fun Task.isOverDue() =
     this.executionPeriod.end.before(today())
 
 fun Task.isDue() = this.hasStatus() && this.status == Task.TaskStatus.READY
+
+/**
+ * Retrieves the localized description of the Task using the translation configuration.
+ *
+ * This function:
+ * 1. Takes the task description (typically from ActivityDefinition.productCodeableConcept.text)
+ * 2. Converts it to a translation property key (e.g., "Discuss Confidentiality" →
+ *    "discuss.confidentiality")
+ * 3. Looks up the translation in the configured translation bundles for the current locale
+ * 4. Falls back to the original description if no translation is found
+ *
+ * @param configurationRegistry The ConfigurationRegistry instance to access the localization helper
+ * @return The localized task description, or the original description if no translation found
+ */
+fun Task.getLocalizedDescription(configurationRegistry: ConfigurationRegistry): String {
+  val description = this.description ?: return ""
+  val translationKey = description.translationPropertyKey()
+  val template = "{{$translationKey}}"
+  val translatedText =
+    configurationRegistry.localizationHelper.parseTemplate(
+      LocalizationHelper.STRINGS_BASE_BUNDLE_NAME,
+      Locale.getDefault(),
+      template,
+    )
+  return if (translatedText == template) description else translatedText
+}

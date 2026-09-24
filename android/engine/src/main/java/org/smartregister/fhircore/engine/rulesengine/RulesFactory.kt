@@ -188,14 +188,20 @@ constructor(
 
     /**
      * This function creates a property key from the string [value] and uses the key to retrieve the
-     * correct translation from the string.properties file.
+     * correct translation from the string.properties file. If no translation is found, it falls
+     * back to the original value.
      */
-    fun translate(value: String): String =
-      configurationRegistry.localizationHelper.parseTemplate(
-        LocalizationHelper.STRINGS_BASE_BUNDLE_NAME,
-        Locale.getDefault(),
-        "{{${value.translationPropertyKey()}}}",
-      )
+    fun translate(value: String): String {
+      val translationKey = value.translationPropertyKey()
+      val template = "{{$translationKey}}"
+      val translatedText =
+        configurationRegistry.localizationHelper.parseTemplate(
+          LocalizationHelper.STRINGS_BASE_BUNDLE_NAME,
+          Locale.getDefault(),
+          template,
+        )
+      return if (translatedText == template) value else translatedText
+    }
 
     /**
      * This method retrieves a list of relatedResources for a given resource from the facts map It

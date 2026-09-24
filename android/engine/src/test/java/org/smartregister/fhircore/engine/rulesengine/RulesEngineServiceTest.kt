@@ -106,6 +106,74 @@ class RulesEngineServiceTest : RobolectricTest() {
   }
 
   @Test
+  fun testTranslate_WithValidTranslation_ReturnsTranslatedText() {
+    // Uses real translation from strings.properties
+    val result = rulesEngineService.translate("Discuss Confidentiality")
+
+    Assert.assertEquals("Discuss Confidentiality (English)", result)
+  }
+
+  @Test
+  fun testTranslate_WithUnknownText_FallsBackToOriginal() {
+    val originalText = "Some Unknown Task That Does Not Exist"
+
+    val result = rulesEngineService.translate(originalText)
+
+    // Should fallback to original text and never return template strings
+    Assert.assertEquals(originalText, result)
+    Assert.assertFalse(result.contains("{{"))
+    Assert.assertFalse(result.contains("}}"))
+  }
+
+  @Test
+  fun testTranslate_WithEmptyString_ReturnsEmptyString() {
+    val result = rulesEngineService.translate("")
+
+    Assert.assertEquals("", result)
+  }
+
+  @Test
+  fun testTranslate_WithSpecialCharactersAndNumbers_HandlesCorrectly() {
+    // Tests dashes, numbers, and special characters
+    val result = rulesEngineService.translate("PHQ-9")
+
+    Assert.assertEquals("PHQ-9 Screening", result)
+  }
+
+  @Test
+  fun testTranslate_WithWhitespace_TrimsAndTranslates() {
+    // Tests whitespace trimming and consecutive spaces
+    val result = rulesEngineService.translate("  IPC     Session    1  ")
+
+    Assert.assertEquals("IPC Session 1 (English)", result)
+  }
+
+  @Test
+  fun testTranslate_WithUppercaseInput_MatchesLowercaseKey() {
+    // Tests case insensitivity - uppercase converted to lowercase for key lookup
+    val result = rulesEngineService.translate("DISCUSS CONFIDENTIALITY")
+
+    Assert.assertEquals("Discuss Confidentiality (English)", result)
+  }
+
+  @Test
+  fun testTranslate_WithParenthesesInOriginal_HandlesCorrectly() {
+    // Tests parentheses and dashes in original text
+    val result = rulesEngineService.translate("Information Only (Low Risk)")
+
+    Assert.assertEquals("Information Only - Low Risk Category", result)
+  }
+
+  @Test
+  fun testTranslate_WithFrenchLocale_ReturnsCorrectTranslation() {
+    Locale.setDefault(Locale.FRENCH)
+
+    val result = rulesEngineService.translate("Discuss Confidentiality")
+
+    Assert.assertEquals("Discuter de la Confidentialité", result)
+  }
+
+  @Test
   fun testComputeTotalCountShouldReturnSumOfAllCounts() {
     val totalCount =
       rulesEngineService.computeTotalCount(
