@@ -35,6 +35,7 @@ import org.smartregister.fhircore.engine.p2p.dao.P2PSenderTransferDao
 import org.smartregister.fhircore.engine.sync.AppSyncWorker
 import org.smartregister.fhircore.engine.ui.base.BaseMultiLanguageActivity
 import org.smartregister.fhircore.engine.ui.theme.AppTheme
+import org.smartregister.fhircore.engine.util.SharedPreferenceKey
 import org.smartregister.fhircore.engine.util.extension.applyWindowInsetListener
 import org.smartregister.fhircore.engine.util.extension.isDeviceOnline
 import org.smartregister.fhircore.engine.util.extension.launchActivityWithNoBackStackHistory
@@ -87,6 +88,12 @@ open class LoginActivity : BaseMultiLanguageActivity() {
         ) {
           navigateToPinLogin(launchSetup = false)
         }
+      } else {
+        // The refresh token outlives a logout, so skip the resume when the user explicitly logged
+        // out. Otherwise the home screen is restored without any credentials being entered.
+        if (!loginActivity.userLoggedOut() && loginActivity.isRefreshTokenActive()) {
+          updateNavigateHome(true)
+        }
       }
       viewModelScope.launch { contentCache.invalidate() }
       navigateToHome.observe(loginActivity) { launchHomeScreen ->
@@ -110,6 +117,10 @@ open class LoginActivity : BaseMultiLanguageActivity() {
 
   @VisibleForTesting
   open fun isRefreshTokenActive() = loginViewModel.tokenAuthenticator.isCurrentRefreshTokenActive()
+
+  @VisibleForTesting
+  open fun userLoggedOut() =
+    loginViewModel.sharedPreferences.read(SharedPreferenceKey.USER_LOGGED_OUT.name, false)
 
   @VisibleForTesting open fun deviceOnline() = isDeviceOnline()
 

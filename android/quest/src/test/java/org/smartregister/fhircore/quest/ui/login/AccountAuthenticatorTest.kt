@@ -227,6 +227,23 @@ class AccountAuthenticatorTest : RobolectricTest() {
   }
 
   @Test
+  fun testThatLogoutInvokesOnLogoutWhenRemoteLogoutIsUnsuccessful() {
+    every { tokenAuthenticator.logout() } returns Result.success(false)
+    val onLogout = mockk<() -> Unit>(relaxed = true)
+    accountAuthenticator.logout(onLogout)
+    verify { onLogout.invoke() }
+  }
+
+  @Test
+  fun testThatLogoutInvokesOnLogoutWhenRemoteLogoutFails() {
+    every { tokenAuthenticator.logout() } returns
+      Result.failure(UnknownHostException("Unable to reach the server"))
+    val onLogout = mockk<() -> Unit>(relaxed = true)
+    accountAuthenticator.logout(onLogout)
+    verify { onLogout.invoke() }
+  }
+
+  @Test
   fun testValidateLoginCredentials() {
     every { tokenAuthenticator.validateSavedLoginCredentials(any(), any()) } returns true
     Assert.assertTrue(accountAuthenticator.validateLoginCredentials("doe", "pswd".toCharArray()))

@@ -16,6 +16,7 @@
 
 package org.smartregister.fhircore.quest.ui.usersetting
 
+import android.app.Activity
 import android.content.Context
 import android.os.Environment
 import android.widget.Toast
@@ -149,12 +150,9 @@ constructor(
         event.context.getActivity()?.let { activity ->
           // Attempt to logout remotely if user is online
           if (activity.isDeviceOnline()) {
-            accountAuthenticator.logout {
-              updateProgressBarState(false, R.string.logging_out)
-              activity.launchActivityWithNoBackStackHistory<LoginActivity>()
-            }
+            accountAuthenticator.logout { completeLogout(activity) }
           } else {
-            activity.launchActivityWithNoBackStackHistory<LoginActivity>()
+            completeLogout(activity)
           }
         }
       }
@@ -197,6 +195,17 @@ constructor(
         copyDatabase(event.context) { updateProgressBarState(false, R.string.exporting_db) }
       }
     }
+  }
+
+  /**
+   * Navigates to the [LoginActivity], recording that the user explicitly logged out so that the
+   * session is not resumed while the refresh token is still valid. The marker is persisted because
+   * the login screen is finished as soon as the app is backgrounded.
+   */
+  private fun completeLogout(activity: Activity) {
+    updateProgressBarState(false, R.string.logging_out)
+    sharedPreferencesHelper.write(SharedPreferenceKey.USER_LOGGED_OUT.name, true)
+    activity.launchActivityWithNoBackStackHistory<LoginActivity>()
   }
 
   private fun updateProgressBarState(isShown: Boolean, messageResourceId: Int) {

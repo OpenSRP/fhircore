@@ -152,10 +152,7 @@ constructor(
             onFetchPractitioner = { bundleResult, userInfo ->
               if (bundleResult.isSuccess) {
                 val bundle = bundleResult.getOrDefault(FhirR4ModelBundle())
-                savePractitionerDetails(bundle, userInfo) {
-                  _showProgressBar.postValue(false)
-                  updateNavigateHome(true)
-                }
+                savePractitionerDetails(bundle, userInfo) { onLoginSuccess() }
               } else {
                 _showProgressBar.postValue(false)
                 Timber.e(bundleResult.exceptionOrNull())
@@ -181,8 +178,7 @@ constructor(
             } catch (e: Exception) {
               Timber.e(e)
             }
-            _showProgressBar.postValue(false)
-            updateNavigateHome(true)
+            onLoginSuccess()
           } else {
             _showProgressBar.postValue(false)
             _loginErrorState.postValue(LoginErrorState.INVALID_CREDENTIALS)
@@ -207,6 +203,16 @@ constructor(
     _navigateToHome.postValue(navigateHome)
   }
 
+  /**
+   * Entering credentials supersedes any previous logout, so clear the marker that stops the session
+   * from being resumed. Otherwise credentials would be requested on every subsequent launch.
+   */
+  private fun onLoginSuccess() {
+    sharedPreferences.remove(SharedPreferenceKey.USER_LOGGED_OUT.name)
+    _showProgressBar.postValue(false)
+    updateNavigateHome(true)
+  }
+
   fun isPinEnabled(): Boolean = applicationConfiguration.loginConfig.enablePin ?: false
 
   /**
@@ -226,8 +232,7 @@ constructor(
         decodeWithGson = true,
       )
     if (tokenAuthenticator.sessionActive() && practitionerDetails != null) {
-      _showProgressBar.postValue(false)
-      updateNavigateHome(true)
+      onLoginSuccess()
     } else {
       // Prevent user from logging in with different credentials
       val existingCredentials = secureSharedPreference.retrieveCredentials()

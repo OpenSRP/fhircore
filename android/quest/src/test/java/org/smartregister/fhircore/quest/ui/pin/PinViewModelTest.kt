@@ -120,6 +120,8 @@ class PinViewModelTest : RobolectricTest() {
   fun testOnPinVerified() {
     pinViewModel.onPinVerified(true)
 
+    // Unlocking supersedes a previous logout
+    verify { sharedPreferenceHelper.remove(SharedPreferenceKey.USER_LOGGED_OUT.name) }
     Assert.assertEquals(true, pinViewModel.navigateToHome.value)
   }
 
@@ -158,6 +160,8 @@ class PinViewModelTest : RobolectricTest() {
 
     // Session token pin and credentials reset
     verify { secureSharedPreference.deleteSessionPin() }
+    // The login screen must ask for credentials instead of resuming the session
+    verify { sharedPreferenceHelper.write(SharedPreferenceKey.USER_LOGGED_OUT.name, true) }
     Assert.assertEquals(true, pinViewModel.navigateToLogin.value)
   }
 

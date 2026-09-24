@@ -18,6 +18,7 @@ package org.smartregister.fhircore.quest.ui.login
 
 import android.content.Context
 import android.content.Intent
+import android.os.Looper
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.lifecycle.Observer
 import androidx.test.core.app.ApplicationProvider
@@ -168,6 +169,33 @@ class LoginActivityTest : RobolectricTest() {
 
     val shadowIntent: ShadowIntent = shadowOf(resultIntent)
     Assert.assertEquals(PinLoginActivity::class.java, shadowIntent.intentClass)
+  }
+
+  @Test
+  fun testNavigateToScreenShouldResumeSessionWhenRefreshTokenIsActiveAndPinDisabled() {
+    mockkObject(P2PLibrary)
+    every { P2PLibrary.init(any()) } returns mockk()
+
+    val controller = Robolectric.buildActivity(Faker.TestLoginActivityWithoutPin::class.java)
+    val activity = controller.create().resume().get()
+    shadowOf(Looper.getMainLooper()).idle()
+
+    Assert.assertTrue(activity.loginViewModel.navigateToHome.value!!)
+
+    controller.destroy()
+    unmockkObject(P2PLibrary)
+  }
+
+  @Test
+  fun testNavigateToScreenShouldNotResumeSessionWhenUserLoggedOut() {
+    val controller = Robolectric.buildActivity(Faker.TestLoginActivityLoggedOut::class.java)
+    val activity = controller.create().resume().get()
+    shadowOf(Looper.getMainLooper()).idle()
+
+    // The refresh token is still active, but an explicit logout must not resume the session
+    Assert.assertFalse(activity.loginViewModel.navigateToHome.value!!)
+
+    controller.destroy()
   }
 
   @OptIn(ExperimentalMaterialApi::class)

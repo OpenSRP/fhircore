@@ -132,11 +132,14 @@ constructor(
     features: Array<out String>?,
   ): Bundle = bundleOf()
 
+  /**
+   * Logs the user out remotely then invokes [onLogout]. The remote call is best effort; [onLogout]
+   * is invoked even when the server is unreachable or rejects the request, otherwise the user is
+   * left on the current screen with no way to complete the logout.
+   */
   fun logout(onLogout: () -> Unit) {
-    tokenAuthenticator
-      .logout()
-      .onSuccess { loggedOut -> if (loggedOut) onLogout() }
-      .onFailure { onLogout() }
+    tokenAuthenticator.logout().onFailure { Timber.e(it) }
+    onLogout()
   }
 
   fun validateLoginCredentials(username: String, password: CharArray) =

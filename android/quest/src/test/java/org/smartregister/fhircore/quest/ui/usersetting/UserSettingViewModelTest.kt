@@ -185,6 +185,19 @@ class UserSettingViewModelTest : RobolectricTest() {
   }
 
   @Test
+  fun testLogoutWhenOfflineShouldRecordThatUserLoggedOut() {
+    val activity = mockk<HiltActivityForTest>(relaxed = true)
+    every { activity.isDeviceOnline() } returns false
+    every { sharedPreferencesHelper.write(any(), any<Boolean>()) } just runs
+
+    userSettingViewModel.onEvent(UserSettingsEvent.Logout(activity))
+    Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+    // The login screen must ask for credentials instead of resuming the session
+    verify { sharedPreferencesHelper.write(SharedPreferenceKey.USER_LOGGED_OUT.name, true) }
+  }
+
+  @Test
   fun allowSwitchingLanguagesShouldReturnFalseWhenSwitchLanguagesOptionIsNotSetAndMultipleLanguagesAreConfigured() {
     val languages = listOf(Language("es", "Spanish"), Language("en", "English"))
     userSettingViewModel = spyk(userSettingViewModel)

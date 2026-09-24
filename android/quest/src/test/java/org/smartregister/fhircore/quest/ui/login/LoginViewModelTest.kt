@@ -189,6 +189,26 @@ internal class LoginViewModelTest : RobolectricTest() {
   }
 
   @Test
+  fun testSuccessfulOfflineLoginClearsTheUserLoggedOutMarker() {
+    val activity = mockedActivity()
+    updateCredentials()
+    secureSharedPreference.saveCredentials(thisUsername, this.thisPassword.toCharArray())
+    sharedPreferencesHelper.write(SharedPreferenceKey.USER_LOGGED_OUT.name, true)
+
+    every {
+      accountAuthenticator.validateLoginCredentials(thisUsername, thisPassword.toCharArray())
+    } returns true
+
+    loginViewModel.login(activity)
+
+    // Entering credentials supersedes the previous logout
+    Assert.assertFalse(
+      sharedPreferencesHelper.read(SharedPreferenceKey.USER_LOGGED_OUT.name, false),
+    )
+    Assert.assertTrue(loginViewModel.navigateToHome.value!!)
+  }
+
+  @Test
   fun testUnSuccessfulOfflineLogin() {
     val activity = mockedActivity()
 

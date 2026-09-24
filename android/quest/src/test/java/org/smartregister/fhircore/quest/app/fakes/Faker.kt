@@ -168,6 +168,20 @@ object Faker {
     override fun deviceOnline() = true
   }
 
+  open class TestLoginActivityWithoutPin : LoginActivity() {
+    override fun pinActive() = false
+
+    override fun pinEnabled() = false
+
+    override fun deviceOnline() = false
+
+    override fun isRefreshTokenActive() = true
+  }
+
+  open class TestLoginActivityLoggedOut : TestLoginActivityWithoutPin() {
+    override fun userLoggedOut() = true
+  }
+
   fun buildBinaryResource(
     id: String = "d60ff460-7671-466a-93f4-c93a2ebf2077",
   ): Binary {

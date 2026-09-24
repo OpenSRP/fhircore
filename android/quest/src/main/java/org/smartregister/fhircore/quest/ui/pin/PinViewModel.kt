@@ -108,6 +108,8 @@ constructor(
 
   fun onPinVerified(validPin: Boolean) {
     if (validPin) {
+      // Unlocking supersedes a previous logout, which on pin deployments acts as a screen lock
+      sharedPreferences.remove(SharedPreferenceKey.USER_LOGGED_OUT.name)
       showProgressBar(false)
       _navigateToHome.postValue(true)
     }
@@ -140,6 +142,9 @@ constructor(
       sharedPreferences.remove(SharedPreferenceKey.APP_ID.name)
       _navigateToSettings.value = true
     } else {
+      // The refresh token outlives the deleted session pin, so record the explicit logout to stop
+      // the login screen from resuming the session instead of asking for credentials.
+      sharedPreferences.write(SharedPreferenceKey.USER_LOGGED_OUT.name, true)
       _navigateToLogin.value = true
     }
   }
