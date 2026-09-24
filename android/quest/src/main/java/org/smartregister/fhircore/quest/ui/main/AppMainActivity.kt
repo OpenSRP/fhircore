@@ -29,6 +29,7 @@ import androidx.activity.result.ActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.os.bundleOf
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
@@ -40,6 +41,7 @@ import io.sentry.android.navigation.SentryNavigationListener
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -47,6 +49,7 @@ import org.hl7.fhir.r4.model.IdType
 import org.hl7.fhir.r4.model.QuestionnaireResponse
 import org.smartregister.fhircore.engine.configuration.QuestionnaireConfig
 import org.smartregister.fhircore.engine.configuration.app.LocationLogOptions
+import org.smartregister.fhircore.engine.data.remote.shared.TokenAuthenticator
 import org.smartregister.fhircore.engine.datastore.ProtoDataStore
 import org.smartregister.fhircore.engine.domain.model.LauncherType
 import org.smartregister.fhircore.engine.rulesengine.services.LocationCoordinate
@@ -58,6 +61,9 @@ import org.smartregister.fhircore.engine.ui.base.AlertDialogue
 import org.smartregister.fhircore.engine.ui.base.AlertIntent
 import org.smartregister.fhircore.engine.ui.base.BaseMultiLanguageActivity
 import org.smartregister.fhircore.engine.util.DispatcherProvider
+import org.smartregister.fhircore.engine.util.SecureSharedPreference
+import org.smartregister.fhircore.engine.util.extension.isDeviceOnline
+import org.smartregister.fhircore.engine.util.extension.launchActivityWithNoBackStackHistory
 import org.smartregister.fhircore.engine.util.extension.parcelable
 import org.smartregister.fhircore.engine.util.extension.serializable
 import org.smartregister.fhircore.engine.util.extension.showToast
@@ -66,6 +72,7 @@ import org.smartregister.fhircore.engine.util.location.PermissionUtils
 import org.smartregister.fhircore.quest.R
 import org.smartregister.fhircore.quest.event.AppEvent
 import org.smartregister.fhircore.quest.event.EventBus
+import org.smartregister.fhircore.quest.ui.login.LoginActivity
 import org.smartregister.fhircore.quest.ui.questionnaire.QuestionnaireActivity
 import org.smartregister.fhircore.quest.ui.shared.ActivityOnResultType
 import org.smartregister.fhircore.quest.ui.shared.ON_RESULT_TYPE
@@ -83,6 +90,10 @@ open class AppMainActivity : BaseMultiLanguageActivity(), QuestionnaireHandler, 
   @Inject lateinit var eventBus: EventBus
 
   @Inject lateinit var dispatcherProvider: DispatcherProvider
+
+  @Inject lateinit var tokenAuthenticator: TokenAuthenticator
+
+  @Inject lateinit var secureSharedPreference: SecureSharedPreference
 
   val appMainViewModel by viewModels<AppMainViewModel>()
   private val sentryNavListener =
@@ -110,12 +121,17 @@ open class AppMainActivity : BaseMultiLanguageActivity(), QuestionnaireHandler, 
     registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
       activityResult: ActivityResult ->
       val onResultType = activityResult.data?.extras?.getString(ON_RESULT_TYPE)
-      if (
-        activityResult.resultCode == Activity.RESULT_OK &&
-          !onResultType.isNullOrBlank() &&
-          ActivityOnResultType.valueOf(onResultType) == ActivityOnResultType.QUESTIONNAIRE
-      ) {
-        lifecycleScope.launch { onSubmitQuestionnaire(activityResult) }
+      lifecycleScope.launch {
+        if (
+          activityResult.resultCode == Activity.RESULT_OK &&
+            !onResultType.isNullOrBlank() &&
+            ActivityOnResultType.valueOf(onResultType) == ActivityOnResultType.QUESTIONNAIRE
+        ) {
+          onSubmitQuestionnaire(activityResult)
+
+          // Session may have expired while the questionnaire was open
+          redirectIfSessionExpired(delayMillis = 3000)
+        }
       }
     }
 
@@ -160,6 +176,7 @@ open class AppMainActivity : BaseMultiLanguageActivity(), QuestionnaireHandler, 
     super.onResume()
     findNavController(R.id.nav_host).addOnDestinationChangedListener(sentryNavListener)
     syncListenerManager.registerSyncListener(this, lifecycle)
+    redirectIfSessionExpired()
   }
 
   override fun onPause() {
@@ -292,7 +309,7 @@ open class AppMainActivity : BaseMultiLanguageActivity(), QuestionnaireHandler, 
             currentSyncJobStatus = syncJobStatus,
           )
         }
-      is CurrentSyncJobStatus.Failed ->
+      is CurrentSyncJobStatus.Failed -> {
         appMainViewModel.run {
           onEvent(
             AppMainEvent.UpdateSyncState(
@@ -306,10 +323,52 @@ open class AppMainActivity : BaseMultiLanguageActivity(), QuestionnaireHandler, 
             currentSyncJobStatus = syncJobStatus,
           )
         }
+        // A sync can fail because the session expired; prompt re-login when that is the cause
+        redirectIfSessionExpired()
+      }
       else -> {
         // Do Nothing
       }
     }
+  }
+
+  private var redirectingToLogin = false
+
+  /**
+   * Routes the user to login when the device is online and the refresh token has expired. Guarded
+   * so repeated triggers (e.g. sync failures, resume) do not stack dialogs.
+   */
+  private fun redirectIfSessionExpired(delayMillis: Long = 0) {
+    if (redirectingToLogin) return
+    if (isDeviceOnline() && !tokenAuthenticator.isCurrentRefreshTokenActive()) {
+      redirectingToLogin = true
+      lifecycleScope.launch {
+        delay(delayMillis) // Let the user see saved data before redirecting (post-questionnaire)
+        showSessionExpiredDialog()
+      }
+    }
+  }
+
+  private fun showSessionExpiredDialog() {
+    AlertDialogue.showAlert(
+      context = this,
+      alertIntent = AlertIntent.CONFIRM,
+      message = getString(org.smartregister.fhircore.engine.R.string.session_expired_form_saved),
+      title = getString(org.smartregister.fhircore.engine.R.string.session_expired),
+      confirmButton =
+        AlertDialogButton(
+          listener = { dialog ->
+            dialog.dismiss()
+            // Force full re-login (fetches fresh tokens); a PIN unlock would not
+            secureSharedPreference.deleteSessionPin()
+            launchActivityWithNoBackStackHistory<LoginActivity>(
+              bundle = bundleOf(TokenAuthenticator.CANCEL_BACKGROUND_SYNC to true),
+            )
+          },
+          text = org.smartregister.fhircore.engine.R.string.questionnaire_alert_ack_button_title,
+        ),
+      cancellable = false,
+    )
   }
 
   private fun overrideOnBackPressListener() {

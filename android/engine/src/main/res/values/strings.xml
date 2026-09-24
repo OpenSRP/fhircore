@@ -121,6 +121,7 @@
     <string name="percentage" translatable="false">%</string>
     <string name="logging_out">Logging out. Please wait…</string>
     <string name="session_expired">Session has been expired and must login again</string>
+    <string name="session_expired_form_saved">Your form has been saved successfully. Your session has expired, please log in again to continue.</string>
     <string name="sex">Sex</string>
     <string name="age">Age</string>
     <string name="dob">DOB</string>

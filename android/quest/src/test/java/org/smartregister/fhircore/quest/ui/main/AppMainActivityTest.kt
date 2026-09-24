@@ -17,6 +17,7 @@
 package org.smartregister.fhircore.quest.ui.main
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import androidx.activity.result.ActivityResult
 import androidx.compose.material.ExperimentalMaterialApi
@@ -32,13 +33,16 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
+import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.slot
 import io.mockk.spyk
+import io.mockk.unmockkStatic
 import java.io.Serializable
 import java.time.OffsetDateTime
 import kotlinx.coroutines.test.runTest
 import org.hl7.fhir.r4.model.QuestionnaireResponse
+import org.junit.After
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Rule
@@ -49,6 +53,7 @@ import org.smartregister.fhircore.engine.configuration.QuestionnaireConfig
 import org.smartregister.fhircore.engine.sync.SyncState
 import org.smartregister.fhircore.engine.task.FhirCarePlanGenerator
 import org.smartregister.fhircore.engine.util.SharedPreferenceKey
+import org.smartregister.fhircore.engine.util.extension.isDeviceOnline
 import org.smartregister.fhircore.quest.app.fakes.Faker
 import org.smartregister.fhircore.quest.event.AppEvent
 import org.smartregister.fhircore.quest.event.EventBus
@@ -75,6 +80,14 @@ class AppMainActivityTest : ActivityRobolectricTest() {
     hiltRule.inject()
     appMainActivity = spyk(Robolectric.buildActivity(AppMainActivity::class.java).create().get())
     every { appMainActivity.eventBus } returns eventBus
+    // The session-expired redirect runs on resume/sync; keep it inert for these tests
+    mockkStatic(Context::isDeviceOnline)
+    every { appMainActivity.isDeviceOnline() } returns false
+  }
+
+  @After
+  fun unmockStatics() {
+    unmockkStatic(Context::isDeviceOnline)
   }
 
   @Test

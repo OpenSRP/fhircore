@@ -18,16 +18,16 @@ package org.smartregister.fhircore.engine.auth
 
 import android.accounts.Account
 import android.accounts.AccountManager
+import android.accounts.AccountManagerCallback
 import android.accounts.AccountManagerFuture
 import android.accounts.AuthenticatorException
 import android.accounts.OperationCanceledException
+import android.content.Intent
 import android.os.Bundle
 import androidx.core.os.bundleOf
-import androidx.test.core.app.ApplicationProvider
 import com.auth0.jwt.exceptions.JWTDecodeException
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
-import dagger.hilt.android.testing.HiltTestApplication
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
@@ -77,7 +77,6 @@ class TokenAuthenticatorTest : RobolectricTest() {
   private val oAuthService: OAuthService = mockk()
   private lateinit var tokenAuthenticator: TokenAuthenticator
   private val accountManager = mockk<AccountManager>()
-  private val context = ApplicationProvider.getApplicationContext<HiltTestApplication>()
   private val sampleUsername = "demo"
 
   @Before
@@ -92,7 +91,6 @@ class TokenAuthenticatorTest : RobolectricTest() {
           oAuthService = oAuthService,
           dispatcherProvider = dispatcherProvider,
           accountManager = accountManager,
-          context = context,
         ),
       )
   }
@@ -195,7 +193,6 @@ class TokenAuthenticatorTest : RobolectricTest() {
           oAuthService = oAuthService,
           dispatcherProvider = dispatcherProvider,
           accountManager = accountManager,
-          context = context,
         ),
       )
 
@@ -377,7 +374,6 @@ class TokenAuthenticatorTest : RobolectricTest() {
           oAuthService = oAuthService,
           dispatcherProvider = dispatcherProvider,
           accountManager = accountManager,
-          context = context,
         ),
       )
 
@@ -445,6 +441,47 @@ class TokenAuthenticatorTest : RobolectricTest() {
     every { accountManager.getPassword(account) } returns token
 
     Assert.assertTrue(tokenAuthenticator.isCurrentRefreshTokenActive())
+  }
+
+  @Test
+  fun testHandleKeyIntentDoesNotClearSessionPin() {
+    val spiedSecureSharedPreference = spyk(secureSharedPreference)
+    val authenticator =
+      spyk(
+        TokenAuthenticator(
+          secureSharedPreference = spiedSecureSharedPreference,
+          configService = configService,
+          oAuthService = oAuthService,
+          dispatcherProvider = dispatcherProvider,
+          accountManager = accountManager,
+        ),
+      )
+    val account = Account(sampleUsername, PROVIDER)
+    val keyIntentBundle = Bundle().apply { putParcelable(AccountManager.KEY_INTENT, Intent()) }
+    val resultFuture =
+      mockk<AccountManagerFuture<Bundle>> { every { result } returns keyIntentBundle }
+    val callbacks = mutableListOf<AccountManagerCallback<Bundle>>()
+
+    every { authenticator.findAccount() } returns account
+    every { authenticator.isTokenActive(any()) } returns false
+    every { accountManager.peekAuthToken(account, AUTH_TOKEN_TYPE) } returns "expiredAccessToken"
+    every { accountManager.invalidateAuthToken(any(), any()) } just runs
+    every {
+      accountManager.getAuthToken(
+        account,
+        AUTH_TOKEN_TYPE,
+        any<Bundle>(),
+        true,
+        capture(callbacks),
+        any(),
+      )
+    } returns resultFuture
+
+    authenticator.getAccessToken()
+    callbacks.last().run(resultFuture)
+
+    // KEY_INTENT now only logs; the UI owns the redirect, so nothing local is cleared here
+    verify(exactly = 0) { spiedSecureSharedPreference.deleteSessionPin() }
   }
 
   companion object {
