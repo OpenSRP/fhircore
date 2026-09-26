@@ -61,10 +61,10 @@ requiredKeystoreProperties.forEach { property ->
 // Set Sentry properties
 val requiredSentryProperties =
   listOf(
-    "org",
-    "project",
-    "auth.token",
-    "url"
+    "sentry.org",
+    "sentry.project",
+    "sentry.auth.token",
+    "sentry.url"
   )
 
 val sentryProperties = try {

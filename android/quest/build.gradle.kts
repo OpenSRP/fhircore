@@ -731,18 +731,18 @@ tasks.register("evaluatePerformanceBenchmarkResults") {
 sentry {
   // Disables or enables debug log output, e.g. for for sentry-cli.
   // Default is disabled.
-  debug.set(true)
+  debug.set(false)
 
   // The slug of the Sentry organization to use for uploading proguard mappings/source contexts.
-  org.set("""${project.extra["org"]}""")
+  org.set(System.getenv("SENTRY_ORG") ?: """${project.extra["sentry.org"]}""")
 
   // The slug of the Sentry project to use for uploading proguard mappings/source contexts.
-  projectName.set("""${project.extra["project"]}""")
+  projectName.set(System.getenv("SENTRY_PROJECT") ?: """${project.extra["sentry.project"]}""")
 
   // The authentication token to use for uploading proguard mappings/source contexts.
   // WARNING: Do not expose this token in your build.gradle files, but rather set an environment
   // variable and read it into this property.
-  authToken.set("""${project.extra["auth.token"]}""")
+  authToken.set(System.getenv("SENTRY_AUTH_TOKEN") ?: """${project.extra["sentry.auth.token"]}""")
 
   // The url of your Sentry instance. If you're using SAAS (not self hosting) you do not have to
   // set this. If you are self hosting you can set your URL here
