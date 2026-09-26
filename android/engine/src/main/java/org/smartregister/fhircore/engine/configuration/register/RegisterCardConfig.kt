@@ -27,4 +27,5 @@ import org.smartregister.fhircore.engine.domain.model.RuleConfig
 data class RegisterCardConfig(
   val rules: List<RuleConfig> = emptyList(),
   val views: List<ViewProperties> = emptyList(),
+  val displayBottomDivider: Boolean = true,
 ) : Parcelable, java.io.Serializable

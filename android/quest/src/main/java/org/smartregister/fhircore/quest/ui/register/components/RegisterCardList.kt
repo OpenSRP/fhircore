@@ -86,7 +86,9 @@ fun RegisterCardList(
           decodeImage = decodeImage,
         )
       }
-      Divider(color = DividerColor, thickness = 1.dp)
+      if (registerCardConfig.displayBottomDivider) {
+        Divider(color = DividerColor, thickness = 1.dp)
+      }
     }
 
     pagingItems.apply {
