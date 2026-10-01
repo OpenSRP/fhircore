@@ -33,6 +33,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import java.io.ByteArrayOutputStream
+import org.smartregister.fhircore.quest.R
 
 /**
  * Self-contained signature capture widget: a drawing canvas, a "Clear" button, and a primary
@@ -62,7 +63,7 @@ constructor(
 
     clearButton =
       Button(context).apply {
-        text = "Clear"
+        text = context.getString(R.string.signature_clear_button)
         backgroundTintList = ColorStateList.valueOf(CLEAR_BUTTON_BLUE)
         isEnabled = false
         alpha = DISABLED_ALPHA
@@ -71,7 +72,7 @@ constructor(
 
     primaryButton =
       Button(context).apply {
-        text = "Done"
+        text = context.getString(R.string.signature_done_button)
         backgroundTintList = ColorStateList.valueOf(DONE_BUTTON_GREEN)
         isEnabled = false
         alpha = DISABLED_ALPHA
@@ -183,7 +184,7 @@ constructor(
 
     if (isLocked) {
       clearButton.visibility = View.GONE
-      primaryButton.text = "Edit"
+      primaryButton.text = context.getString(R.string.signature_edit_button)
       primaryButton.backgroundTintList = ColorStateList.valueOf(EDIT_BUTTON_GREY)
       primaryButton.isEnabled = true
       primaryButton.alpha = 1f
@@ -192,7 +193,7 @@ constructor(
       clearButton.isEnabled = hasContent
       clearButton.alpha = if (hasContent) 1f else DISABLED_ALPHA
 
-      primaryButton.text = "Done"
+      primaryButton.text = context.getString(R.string.signature_done_button)
       primaryButton.backgroundTintList = ColorStateList.valueOf(DONE_BUTTON_GREEN)
       primaryButton.isEnabled = hasContent
       primaryButton.alpha = if (hasContent) 1f else DISABLED_ALPHA
