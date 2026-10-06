@@ -1421,7 +1421,11 @@ constructor(
         }
       }
     val questionnaireResponses: List<QuestionnaireResponse> = search(search)
-    return questionnaireResponses.maxByOrNull { it.meta.lastUpdated }
+    // Prefer when the form was filled in: responses uploaded in one sync share (almost) the same
+    // lastUpdated, so that alone can pick an older response
+    return questionnaireResponses.maxWithOrNull(
+      compareBy<QuestionnaireResponse>({ it.authored }, { it.meta.lastUpdated }),
+    )
   }
 
   /**
