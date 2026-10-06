@@ -68,6 +68,7 @@ import org.hl7.fhir.r4.model.Bundle
 import org.hl7.fhir.r4.model.CanonicalType
 import org.hl7.fhir.r4.model.CarePlan
 import org.hl7.fhir.r4.model.CodeableConcept
+import org.hl7.fhir.r4.model.Coding
 import org.hl7.fhir.r4.model.DateTimeType
 import org.hl7.fhir.r4.model.DateType
 import org.hl7.fhir.r4.model.Encounter
@@ -2672,6 +2673,175 @@ class FhirCarePlanGeneratorTest : RobolectricTest() {
     val carePlan = CarePlan().apply { instantiatesCanonical = listOf(CanonicalType("123456")) }
     fhirCarePlanGenerator.invokeCleanPlanDefinitionCanonical(carePlan)
     assertEquals("PlanDefinition/123456", carePlan.instantiatesCanonical.first().value)
+  }
+
+  private fun vaccineTask(
+    id: String,
+    description: String,
+    status: TaskStatus,
+    start: String,
+    partOf: String? = null,
+  ) =
+    Task().apply {
+      this.id = id
+      this.description = description
+      this.status = status
+      this.code = CodeableConcept().addCoding(Coding("http://snomed.info/sct", "33879002", null))
+      this.executionPeriod = Period().apply { this.start = DateTimeType(start).value }
+      this.identifier = listOf(org.hl7.fhir.r4.model.Identifier().apply { value = "ident-$id" })
+      partOf?.let { this.partOf = listOf(Reference("Task/$it")) }
+    }
+
+  private fun carePlanWithActivity(vararg taskIds: String) =
+    CarePlan().apply {
+      id = "careplan-1"
+      addActivity().apply { taskIds.forEach { addOutcomeReference(Reference("Task/$it")) } }
+    }
+
+  @Test
+  fun testReconcileWithExistingTasksUpdatesPendingTasksInPlace() {
+    val existing =
+      listOf(
+        vaccineTask("old-bcg", "BCG ", TaskStatus.READY, "2026-01-01"),
+        vaccineTask("old-penta1", "Penta 1", TaskStatus.REQUESTED, "2026-02-12"),
+        vaccineTask("old-penta2", "Penta 2", TaskStatus.CANCELLED, "2026-03-12", "old-penta1"),
+      )
+    val carePlan = carePlanWithActivity("old-bcg", "old-penta1", "old-penta2")
+    val existingActivityCount = carePlan.activity.size
+
+    // Plan re-applied after the date of birth was corrected
+    carePlan.addContained(vaccineTask("new-bcg", "BCG", TaskStatus.READY, "2026-01-10"))
+    carePlan.addContained(vaccineTask("new-penta1", "Penta 1", TaskStatus.REQUESTED, "2026-02-21"))
+    carePlan.addContained(
+      vaccineTask("new-penta2", "Penta 2", TaskStatus.REQUESTED, "2026-03-21", "new-penta1"),
+    )
+    carePlan.activity.first().apply {
+      listOf("new-bcg", "new-penta1", "new-penta2").forEach {
+        addOutcomeReference(Reference("Task/$it"))
+      }
+    }
+
+    fhirCarePlanGenerator.reconcileWithExistingTasks(carePlan, existing, existingActivityCount)
+
+    val tasks = carePlan.contained.filterIsInstance<Task>().associateBy { it.logicalId }
+    assertEquals(setOf("old-bcg", "old-penta1", "old-penta2"), tasks.keys)
+    // New dates and status are kept, ids and identifiers come from the existing Tasks
+    assertEquals(DateTimeType("2026-01-10").value, tasks.getValue("old-bcg").executionPeriod.start)
+    assertEquals(TaskStatus.REQUESTED, tasks.getValue("old-penta2").status)
+    assertEquals("ident-old-penta1", tasks.getValue("old-penta1").identifierFirstRep.value)
+    assertEquals("Task/old-penta1", tasks.getValue("old-penta2").partOfFirstRep.reference)
+    assertEquals(
+      listOf("Task/old-bcg", "Task/old-penta1", "Task/old-penta2"),
+      carePlan.activity.flatMap { it.outcomeReference }.map { it.reference },
+    )
+  }
+
+  @Test
+  fun testReconcileWithExistingTasksKeepsDueTasksActionable() {
+    val existing =
+      listOf(
+        vaccineTask("old-visit", "Child Visit", TaskStatus.READY, "2026-09-01"),
+        vaccineTask("old-later", "Later visit", TaskStatus.READY, "2026-09-01"),
+      )
+    val carePlan = carePlanWithActivity("old-visit", "old-later")
+
+    // Regenerated Tasks start as requested; one is still due, the other moved into the future
+    carePlan.addContained(
+      vaccineTask("new-visit", "Child Visit", TaskStatus.REQUESTED, "2026-09-15"),
+    )
+    carePlan.addContained(
+      vaccineTask("new-later", "Later visit", TaskStatus.REQUESTED, "2999-01-01"),
+    )
+
+    fhirCarePlanGenerator.reconcileWithExistingTasks(carePlan, existing, 1)
+
+    val tasks = carePlan.contained.filterIsInstance<Task>().associateBy { it.logicalId }
+    assertEquals(TaskStatus.READY, tasks.getValue("old-visit").status)
+    assertEquals(TaskStatus.REQUESTED, tasks.getValue("old-later").status)
+  }
+
+  @Test
+  fun testReconcileWithExistingTasksKeepsCompletedTasks() {
+    val existing =
+      listOf(
+        vaccineTask("old-bcg", "BCG", TaskStatus.COMPLETED, "2026-01-01"),
+        vaccineTask("old-penta1", "Penta 1", TaskStatus.READY, "2026-02-12"),
+      )
+    val carePlan = carePlanWithActivity("old-bcg", "old-penta1")
+    val existingActivityCount = carePlan.activity.size
+
+    carePlan.addContained(vaccineTask("new-bcg", "BCG", TaskStatus.READY, "2026-01-10"))
+    carePlan.addContained(
+      vaccineTask("new-penta1", "Penta 1", TaskStatus.REQUESTED, "2026-02-21", "new-bcg"),
+    )
+    carePlan.addContained(vaccineTask("new-mr1", "MR 1", TaskStatus.REQUESTED, "2026-10-01"))
+    carePlan.addActivity().apply {
+      listOf("new-bcg", "new-penta1", "new-mr1").forEach {
+        addOutcomeReference(Reference("Task/$it"))
+      }
+    }
+
+    fhirCarePlanGenerator.reconcileWithExistingTasks(carePlan, existing, existingActivityCount)
+
+    val tasks = carePlan.contained.filterIsInstance<Task>().associateBy { it.logicalId }
+    // Completed BCG is not regenerated, Penta 1 is updated in place, MR 1 is new
+    assertEquals(setOf("old-penta1", "new-mr1"), tasks.keys)
+    assertEquals("Task/old-bcg", tasks.getValue("old-penta1").partOfFirstRep.reference)
+    assertEquals(
+      listOf("Task/old-bcg", "Task/old-penta1", "Task/new-mr1"),
+      carePlan.activity.flatMap { it.outcomeReference }.map { it.reference },
+    )
+  }
+
+  @Test
+  fun testReconcileWithExistingTasksDropsEmptiedNewActivity() {
+    val existing = listOf(vaccineTask("old-bcg", "BCG", TaskStatus.READY, "2026-01-01"))
+    val carePlan = carePlanWithActivity("old-bcg")
+
+    carePlan.addContained(vaccineTask("new-bcg", "BCG", TaskStatus.READY, "2026-01-10"))
+    carePlan.addActivity().addOutcomeReference(Reference("Task/new-bcg"))
+
+    fhirCarePlanGenerator.reconcileWithExistingTasks(carePlan, existing, 1)
+
+    assertEquals(1, carePlan.activity.size)
+    assertEquals("Task/old-bcg", carePlan.activityFirstRep.outcomeReferenceFirstRep.reference)
+    assertEquals("old-bcg", carePlan.contained.single().logicalId)
+  }
+
+  @Test
+  fun testLoadCarePlanTasksMatchesNormalAndDoubledCarePlanReferences() = runTest {
+    val patient = Patient().apply { id = "patient-1" }
+    val carePlan = CarePlan().apply { id = "careplan-1" }
+    fun task(id: String, basedOn: String) =
+      Task().apply {
+        this.id = id
+        this.`for` = Reference("Patient/patient-1")
+        this.basedOn = listOf(Reference(basedOn))
+      }
+    fhirEngine.create(
+      patient,
+      task("downloaded", "CarePlan/careplan-1"),
+      task("generated-on-device", "CarePlan/CarePlan/careplan-1"),
+      task("other-plan", "CarePlan/careplan-2"),
+    )
+
+    val tasks = fhirCarePlanGenerator.loadCarePlanTasks(carePlan, patient)
+
+    assertEquals(setOf("downloaded", "generated-on-device"), tasks.map { it.logicalId }.toSet())
+  }
+
+  @Test
+  fun testReconcileWithExistingTasksIgnoresTasksWithoutDescription() {
+    val existing = listOf(vaccineTask("old-visit", "", TaskStatus.READY, "2026-01-01"))
+    val carePlan = carePlanWithActivity("old-visit")
+
+    carePlan.addContained(vaccineTask("new-visit", "", TaskStatus.READY, "2026-02-01"))
+    carePlan.activityFirstRep.addOutcomeReference(Reference("Task/new-visit"))
+
+    fhirCarePlanGenerator.reconcileWithExistingTasks(carePlan, existing, 1)
+
+    assertEquals("new-visit", carePlan.contained.single().logicalId)
+    assertEquals(2, carePlan.activityFirstRep.outcomeReference.size)
   }
 }
 

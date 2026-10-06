@@ -984,6 +984,7 @@ constructor(
                 data = bundle,
                 generateCarePlanWithWorkflowApi =
                   questionnaireConfig.generateCarePlanWithWorkflowApi,
+                replaceExistingTasks = questionnaireConfig.isEditable(),
               )
             carePlan?.let { validateWithFhirValidator(it) }
           }

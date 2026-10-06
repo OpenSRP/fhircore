@@ -64,6 +64,7 @@ import org.smartregister.fhircore.engine.util.extension.encodeResourceToString
 import org.smartregister.fhircore.engine.util.extension.extractFhirpathDuration
 import org.smartregister.fhircore.engine.util.extension.extractFhirpathPeriod
 import org.smartregister.fhircore.engine.util.extension.extractId
+import org.smartregister.fhircore.engine.util.extension.extractLogicalIdUuid
 import org.smartregister.fhircore.engine.util.extension.isIn
 import org.smartregister.fhircore.engine.util.extension.referenceValue
 import org.smartregister.fhircore.engine.util.extension.updateDependentTaskDueDate
@@ -94,6 +95,7 @@ constructor(
     subject: Resource,
     data: Bundle = Bundle(),
     generateCarePlanWithWorkflowApi: Boolean = false,
+    replaceExistingTasks: Boolean = false,
   ): CarePlan? {
     val planDefinition = defaultRepository.loadResource<PlanDefinition>(planDefinitionId)
     return planDefinition?.let {
@@ -102,15 +104,24 @@ constructor(
         subject = subject,
         data = data,
         generateCarePlanWithWorkflowApi = generateCarePlanWithWorkflowApi,
+        replaceExistingTasks = replaceExistingTasks,
       )
     }
   }
 
+  /**
+   * Generates the CarePlan for [planDefinition] or updates the existing one for [subject].
+   *
+   * Set [replaceExistingTasks] when the plan is re-applied after an edit (e.g. a corrected date of
+   * birth). Tasks already on the CarePlan are then updated in place instead of being added a second
+   * time; see [reconcileWithExistingTasks].
+   */
   suspend fun generateOrUpdateCarePlan(
     planDefinition: PlanDefinition,
     subject: Resource,
     data: Bundle = Bundle(),
     generateCarePlanWithWorkflowApi: Boolean = false,
+    replaceExistingTasks: Boolean = false,
   ): CarePlan? {
     val relatedEntityLocationTags =
       subject.meta.tag.filter {
@@ -145,6 +156,14 @@ constructor(
           relatedEntityLocationTags.forEach(this.meta::addTag)
         }
 
+    val existingTasks =
+      if (replaceExistingTasks && output.logicalId.isNotEmpty()) {
+        loadCarePlanTasks(output, subject)
+      } else {
+        emptyList()
+      }
+    val existingActivityCount = output.activity.size
+
     val carePlanModified: Boolean =
       if (generateCarePlanWithWorkflowApi) {
         workflowCarePlanGenerator.applyPlanDefinitionOnPatient(
@@ -157,6 +176,12 @@ constructor(
       } else {
         liteApplyPlanDefinitionOnPatient(planDefinition, data, subject, output)
       }
+
+    output.contained.filterIsInstance<Task>().forEach { it.fixCarePlanReferences() }
+
+    if (existingTasks.isNotEmpty()) {
+      reconcileWithExistingTasks(output, existingTasks, existingActivityCount)
+    }
 
     val carePlanTasks = output.contained.filterIsInstance<Task>()
 
@@ -172,6 +197,134 @@ constructor(
     }
 
     return if (output.hasActivity()) output else null
+  }
+
+  /**
+   * Matches the Tasks just generated into [carePlan] (contained) with the [existingTasks] of the
+   * same CarePlan, pairing them by description and code, in execution period order. For every
+   * matched pair:
+   * - existing Task completed, in progress, failed or entered in error: the new Task is dropped and
+   *   the existing one is kept untouched (recorded work is never changed);
+   * - otherwise the new Task takes over the existing Task's id and identifier, so saving it updates
+   *   the existing Task (new dates and status) instead of adding a duplicate.
+   *
+   * References between the new Tasks (partOf) and the CarePlan activities are rewritten to the
+   * existing ids. Unmatched new Tasks are kept as they are.
+   */
+  @VisibleForTesting
+  fun reconcileWithExistingTasks(
+    carePlan: CarePlan,
+    existingTasks: List<Task>,
+    existingActivityCount: Int,
+  ) {
+    val newTasks = carePlan.contained.filterIsInstance<Task>()
+    if (newTasks.isEmpty()) return
+
+    val existingByKey =
+      existingTasks
+        .filter { it.taskMatchKey() != null }
+        .sortedBy { it.executionPeriod?.start }
+        .groupBy { it.taskMatchKey() }
+        .mapValues { it.value.toMutableList() }
+
+    val replacedIds = mutableMapOf<String, String>()
+    val droppedTasks = mutableListOf<Task>()
+
+    newTasks
+      .sortedBy { it.executionPeriod?.start }
+      .forEach { newTask ->
+        val existing = existingByKey[newTask.taskMatchKey() ?: return@forEach]?.removeFirstOrNull()
+        if (existing != null) {
+          replacedIds[newTask.logicalId] = existing.logicalId
+          if (
+            existing.status.isIn(
+              TaskStatus.COMPLETED,
+              TaskStatus.INPROGRESS,
+              TaskStatus.FAILED,
+              TaskStatus.ENTEREDINERROR,
+            )
+          ) {
+            droppedTasks.add(newTask)
+          } else {
+            newTask.id = existing.logicalId
+            if (existing.hasIdentifier()) newTask.identifier = existing.identifier
+            // A regenerated Task starts as requested (upcoming, not actionable); keep a Task that
+            // was already due actionable while its new start date has passed
+            if (
+              existing.status == TaskStatus.READY &&
+                newTask.status == TaskStatus.REQUESTED &&
+                newTask.executionPeriod?.start?.after(Date())?.not() == true
+            ) {
+              newTask.status = TaskStatus.READY
+            }
+          }
+        }
+      }
+
+    if (replacedIds.isEmpty()) return
+
+    carePlan.contained.removeAll(droppedTasks)
+
+    fun remap(reference: String?) =
+      reference
+        ?.takeIf { it.startsWith("${ResourceType.Task.name}/") }
+        ?.let { replacedIds[it.extractLogicalIdUuid()] }
+        ?.let { "${ResourceType.Task.name}/$it" }
+
+    carePlan.contained.filterIsInstance<Task>().forEach { task ->
+      task.partOf.forEach { partOf -> remap(partOf.reference)?.let { partOf.reference = it } }
+    }
+
+    // The activities may already reference the existing Tasks; point references to the Tasks
+    // generated now at the existing ones, drop duplicates and activities left without Tasks
+    val references = carePlan.activity.flatMap { it.outcomeReference }.map { it.reference }
+    val referenced = references.filter { remap(it) == null }.toMutableSet()
+    val emptiedActivities = mutableListOf<CarePlan.CarePlanActivityComponent>()
+    carePlan.activity.forEach { activity ->
+      val removed =
+        activity.outcomeReference.removeAll { ref ->
+          val target = remap(ref.reference) ?: return@removeAll false
+          if (referenced.add(target)) {
+            ref.reference = target
+            false
+          } else {
+            true
+          }
+        }
+      if (removed && activity.outcomeReference.isEmpty()) emptiedActivities.add(activity)
+    }
+    carePlan.activity
+      .drop(existingActivityCount)
+      .filter { it in emptiedActivities }
+      .let { carePlan.activity.removeAll(it) }
+  }
+
+  /**
+   * Loads the Tasks of [subject] that are based on [carePlan]. Matches on the CarePlan id rather
+   * than the based-on search index, because Tasks generated on the device may carry a doubled
+   * prefix (CarePlan/CarePlan/<id>) that the server only normalizes on upload.
+   */
+  @VisibleForTesting
+  suspend fun loadCarePlanTasks(carePlan: CarePlan, subject: Resource): List<Task> =
+    fhirEngine
+      .batchedSearch<Task> { filter(Task.SUBJECT, { value = subject.referenceValue() }) }
+      .map { it.resource }
+      .filter { task ->
+        task.basedOn.any { it.reference?.substringAfterLast('/') == carePlan.logicalId }
+      }
+
+  /** Rewrites a doubled CarePlan/CarePlan/<id> based-on reference to CarePlan/<id>. */
+  private fun Task.fixCarePlanReferences() {
+    val doubledPrefix = "${ResourceType.CarePlan.name}/${ResourceType.CarePlan.name}/"
+    basedOn
+      .filter { it.reference?.startsWith(doubledPrefix) == true }
+      .forEach { it.reference = it.reference.removePrefix("${ResourceType.CarePlan.name}/") }
+  }
+
+  private fun Task.taskMatchKey(): String? {
+    val text = description?.trim()
+    if (text.isNullOrEmpty()) return null
+    return text + "|" + code.coding.joinToString(",") { "${it.system}|${it.code}" }
   }
 
   // TODO refactor this code to remove hardcoded appended "PlanDefinition/" on
