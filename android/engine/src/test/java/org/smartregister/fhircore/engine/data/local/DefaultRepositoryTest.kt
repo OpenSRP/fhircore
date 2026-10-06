@@ -1706,6 +1706,46 @@ class DefaultRepositoryTest : RobolectricTest() {
     }
 
   @Test
+  fun testSearchLatestQuestionnaireResponseShouldPreferMostRecentlyAuthoredResponse() =
+    runTest(timeout = 90.seconds) {
+      // Both responses were uploaded in one sync, so lastUpdated does not reflect their order
+      val questionnaireResponses =
+        listOf(
+          QuestionnaireResponse().apply {
+            id = "qr-older-edit"
+            authored = yesterday()
+            meta.lastUpdated = Date()
+            subject = patient.asReference()
+            questionnaire = samplePatientRegisterQuestionnaire.asReference().reference
+          },
+          QuestionnaireResponse().apply {
+            id = "qr-latest-edit"
+            authored = Date()
+            meta.lastUpdated = yesterday()
+            subject = patient.asReference()
+            questionnaire = samplePatientRegisterQuestionnaire.asReference().reference
+          },
+        )
+      fhirEngine.create(
+        patient,
+        samplePatientRegisterQuestionnaire,
+        *questionnaireResponses.toTypedArray(),
+      )
+
+      val latestQuestionnaireResponse =
+        defaultRepository.searchQuestionnaireResponse(
+          resourceId = patient.logicalId,
+          resourceType = ResourceType.Patient,
+          questionnaireId = questionnaireConfig.id,
+          encounterId = null,
+        )
+      Assert.assertEquals(
+        "QuestionnaireResponse/qr-latest-edit",
+        latestQuestionnaireResponse?.id,
+      )
+    }
+
+  @Test
   fun testSearchLatestQuestionnaireResponseWhenSaveDraftIsTrueShouldReturnLatestQuestionnaireResponse() =
     runTest(timeout = 90.seconds) {
       Assert.assertNull(
