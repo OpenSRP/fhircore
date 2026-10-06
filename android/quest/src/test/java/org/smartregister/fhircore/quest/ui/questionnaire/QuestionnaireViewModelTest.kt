@@ -1271,7 +1271,7 @@ class QuestionnaireViewModelTest : RobolectricTest() {
     val bundle =
       Bundle().apply { addEntry(Bundle.BundleEntryComponent().apply { resource = patient }) }
     coEvery {
-      fhirCarePlanGenerator.generateOrUpdateCarePlan(any<String>(), any(), any(), any())
+      fhirCarePlanGenerator.generateOrUpdateCarePlan(any<String>(), any(), any(), any(), any())
     } returns CarePlan()
 
     val questionnaireConfig = questionnaireConfig.copy(planDefinitions = listOf("planDefId"))
@@ -1281,6 +1281,31 @@ class QuestionnaireViewModelTest : RobolectricTest() {
         planDefinitionId = "planDefId",
         subject = patient,
         data = bundle,
+        replaceExistingTasks = false,
+      )
+    }
+  }
+
+  @Test
+  fun testGenerateCarePlanFromEditFormReplacesExistingTasks() = runTest {
+    val bundle =
+      Bundle().apply { addEntry(Bundle.BundleEntryComponent().apply { resource = patient }) }
+    coEvery {
+      fhirCarePlanGenerator.generateOrUpdateCarePlan(any<String>(), any(), any(), any(), any())
+    } returns CarePlan()
+
+    val questionnaireConfig =
+      questionnaireConfig.copy(
+        planDefinitions = listOf("planDefId"),
+        type = QuestionnaireType.EDIT.name,
+      )
+    questionnaireViewModel.generateCarePlan(patient, bundle, questionnaireConfig)
+    coVerify {
+      fhirCarePlanGenerator.generateOrUpdateCarePlan(
+        planDefinitionId = "planDefId",
+        subject = patient,
+        data = bundle,
+        replaceExistingTasks = true,
       )
     }
   }
