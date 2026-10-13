@@ -267,8 +267,16 @@ constructor(
     fun exportBitmap(): Bitmap {
       val w = width.coerceAtLeast(1)
       val h = height.coerceAtLeast(1)
-      val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+
+      // Export at half resolution and RGB_565. Signatures are line art on an opaque
+      // white background, so this shrinks the PNG considerably without a visible
+      // loss in quality at normal viewing size.
+      val targetW = (w / 2).coerceAtLeast(1)
+      val targetH = (h / 2).coerceAtLeast(1)
+
+      val bitmap = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.RGB_565)
       val canvas = Canvas(bitmap)
+      canvas.scale(0.5f, 0.5f)
       canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), backgroundPaint)
       loadedBitmap?.let { canvas.drawBitmap(it, 0f, 0f, null) }
       canvas.drawPath(path, paint)
