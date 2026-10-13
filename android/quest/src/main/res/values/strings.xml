@@ -131,6 +131,9 @@
     <string name="prompt_point_at_a_barcode">Place your camera over the QR Code to start scanning</string>
     <string name="add_qr_code">Add QR code</string>
     <string name="scan_qr_code">Scan QR Code</string>
+    <string name="signature_clear_button">Clear</string>
+    <string name="signature_done_button">Done</string>
+    <string name="signature_edit_button">Edit</string>
     <string name="scan_qr_camera_instruction">Place your camera over the entire QR Code to start scanning</string>
     <string name="failed_to_get_gps_location">Failed to get GPS location</string>
     <string name="space_asterisk" translatable="false">\u0020\u002a</string>
