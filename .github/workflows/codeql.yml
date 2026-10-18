@@ -1,0 +1,75 @@
+# For most projects, this workflow file will not need changing; you simply need
+# to commit it to your repository.
+#
+# You may wish to alter this file to override the set of languages analyzed,
+# or to provide custom queries or build logic.
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ 'main', 'mwcore-dev' ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ 'main' ]
+  schedule:
+    - cron: '40 5 * * 6'
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'java' ]
+        # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python', 'ruby' ]
+        # Use only 'java' to analyze code written in Java, Kotlin or both
+        # Use only 'javascript' to analyze code written in JavaScript, TypeScript or both
+        # Learn more about CodeQL language support at https://aka.ms/codeql-docs/language-support
+
+    steps:
+
+    - name: Decode & Generate Keystore file
+      run: echo $ENCODED_KEYSTORE | base64 -di > "${HOME}"/fhircore.keystore.jks
+      env:
+        ENCODED_KEYSTORE: ${{ secrets.KEYSTORE_FILE }}   
+
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: ${{ matrix.language }}
+        # By default, queries listed here will override any specified in a config file.
+        # Prefix the list here with "+" to use these queries and those in the config file.
+        # Details on CodeQL's query packs refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
+        # queries: code-scanning
+        config-file: ./.github/codeql/codeql-config.yml
+
+    - name: Decode & Generate local.properties file
+      run: echo $LOCAL_PROPERTIES | base64 -di > local.properties
+      working-directory: android
+      env:
+        LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }} 
+
+    - name: Decode & Generate keystore.properties file
+      run: echo $KEYSTORE_PROPERTIES | base64 -di > keystore.properties
+      working-directory: android
+      env:
+        KEYSTORE_PROPERTIES: ${{ secrets.KEYSTORE_PROPERTIES }}
+    
+    - name: Build application using script
+      run: ./gradlew :quest:assembleQuestRelease
+      working-directory: android
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        category: "/language:${{matrix.language}}"

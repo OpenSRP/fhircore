@@ -1,0 +1,12 @@
+name: "OpenSRP config"
+
+disable-default-queries: true
+
+packs:
+  - codeql/java-queries
+query-filters:
+- exclude:
+    problem.severity:
+      - error
+      - warning
+      - recommendation
